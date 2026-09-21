@@ -87,26 +87,26 @@ class DocumentCollectionView extends StatelessWidget {
                   ),
 
                   // 2. Driving License (Front)
-                  if (!isThreeWheeler)
-                    DocumentUploadCard(
-                      title: l10n.drivingLicenseFront,
-                      buttonText: l10n.uploadDrivingLicenseFront,
-                      iconData: Icons.badge_rounded,
-                      imagePath: vm.drivingLicensePath,
-                      onImageSelected: (source) =>
-                          vm.pickDocument(DocumentType.drivingLicense, source),
-                    ),
+
+                  DocumentUploadCard(
+                    title: l10n.drivingLicenseFront,
+                    buttonText: l10n.uploadDrivingLicenseFront,
+                    iconData: Icons.badge_rounded,
+                    imagePath: vm.drivingLicensePath,
+                    onImageSelected: (source) =>
+                        vm.pickDocument(DocumentType.drivingLicense, source),
+                  ),
 
                   // 3. Driving License (Back)
-                  if (!isThreeWheeler)
-                    DocumentUploadCard(
-                      title: l10n.drivingLicenseBack,
-                      buttonText: l10n.uploadDrivingLicenseBack,
-                      iconData: Icons.badge_outlined,
-                      imagePath: vm.dlBackPath,
-                      onImageSelected: (source) =>
-                          vm.pickDocument(DocumentType.dlBack, source),
-                    ),
+
+                  DocumentUploadCard(
+                    title: l10n.drivingLicenseBack,
+                    buttonText: l10n.uploadDrivingLicenseBack,
+                    iconData: Icons.badge_outlined,
+                    imagePath: vm.dlBackPath,
+                    onImageSelected: (source) =>
+                        vm.pickDocument(DocumentType.dlBack, source),
+                  ),
 
                   // 4. Vehicle RC (Front)
                   DocumentUploadCard(
@@ -198,14 +198,15 @@ class DocumentCollectionView extends StatelessWidget {
                       buttonText: l10n.uploadSelfieWithVehicle,
                       iconData: Icons.camera_front_rounded,
                       imagePath: vm.selfieWithVehiclePath,
-                      onImageSelected: (source) =>
-                          vm.pickDocument(DocumentType.selfieWithVehicle, source),
+                      onImageSelected: (source) => vm.pickDocument(
+                          DocumentType.selfieWithVehicle, source),
                     ),
 
                   const SizedBox(height: 24),
 
                   GradientButton(
-                    text: '${l10n.submitDocuments} (${vm.uploadedCount}/$totalDocs)',
+                    text:
+                        '${l10n.submitDocuments} (${vm.uploadedCount}/$totalDocs)',
                     isLoading: vm.isLoading,
                     icon: Icons.cloud_upload_rounded,
                     onPressed: () => vm.submitDocuments(context, driverId),
