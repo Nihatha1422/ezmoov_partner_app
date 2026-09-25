@@ -15,6 +15,7 @@ import '../../models/wallet_model.dart';
 import '../../models/driver_login_time_model.dart';
 import '../../models/driver_ride_action_model.dart';
 import '../../models/partner_app_config_model.dart';
+import '../../models/bid_model.dart';
 import '../constants/app_constants.dart';
 
 class SupabaseService {
@@ -961,7 +962,7 @@ class SupabaseService {
   }
 
   /// Submit driver bid record into public.bids table
-  Future<bool> submitDriverBid({
+  Future<BidModel?> submitDriverBid({
     required String bookingId,
     required String driverId,
     required double currentRate,
@@ -969,7 +970,7 @@ class SupabaseService {
   }) async {
     try {
       final nowStr = DateTime.now().toIso8601String();
-      await client.from('bids').insert({
+      final res = await client.from('bids').insert({
         'booking_id': bookingId,
         'driver_id': driverId,
         'current_booking_rate': currentRate,
@@ -977,13 +978,59 @@ class SupabaseService {
         'status': 'pending',
         'created_at': nowStr,
         'updated_at': nowStr,
-      });
+      }).select().maybeSingle();
+
       debugPrint(
           '✅ Bid submitted successfully for booking #$bookingId: ₹$driverBid');
-      return true;
+
+      if (res != null) {
+        return BidModel.fromJson(Map<String, dynamic>.from(res));
+      }
+      return BidModel(
+        bookingId: bookingId,
+        driverId: driverId,
+        currentBookingRate: currentRate,
+        driverBid: driverBid,
+        status: 'pending',
+        createdAt: DateTime.now(),
+      );
     } catch (e) {
       debugPrint('Error submitting driver bid to public.bids: $e');
       rethrow;
+    }
+  }
+
+  /// Stream live status changes on driver's bid for a booking
+  Stream<List<BidModel>> streamDriverBids({
+    required String bookingId,
+    required String driverId,
+  }) {
+    return client
+        .from('bids')
+        .stream(primaryKey: ['id'])
+        .eq('booking_id', bookingId)
+        .map((data) => data
+            .where((row) => row['driver_id']?.toString() == driverId)
+            .map((row) => BidModel.fromJson(row))
+            .toList());
+  }
+
+  /// Withdraw / cancel pending bid
+  Future<bool> withdrawDriverBid({
+    required String bookingId,
+    required String driverId,
+  }) async {
+    try {
+      await client
+          .from('bids')
+          .update({'status': 'closed', 'updated_at': DateTime.now().toIso8601String()})
+          .eq('booking_id', bookingId)
+          .eq('driver_id', driverId)
+          .eq('status', 'pending');
+      return true;
+    } catch (e) {
+      debugPrint('Error withdrawing driver bid: $e');
+      return false;
     }
   }
 
@@ -1107,6 +1154,84 @@ class SupabaseService {
     }
   }
 
+  /// Deduct booking acceptance fee from driver wallet (default ₹100)
+  Future<Map<String, dynamic>> deductDriverWalletForBookingAcceptance({
+    required String driverId,
+    required String bookingId,
+    double amount = 100.0,
+  }) async {
+    try {
+      // 1. Try atomic RPC if available
+      try {
+        final dynamic targetBookingId =
+            int.tryParse(bookingId.trim()) ?? bookingId.trim();
+        final rpcRes = await client.rpc(
+          'deduct_driver_wallet_for_booking',
+          params: {
+            'p_driver_id': driverId,
+            'p_booking_id': targetBookingId,
+            'p_amount': amount,
+          },
+        );
+        if (rpcRes is Map) {
+          return Map<String, dynamic>.from(rpcRes);
+        }
+      } catch (rpcErr) {
+        debugPrint(
+            'Notice calling deduct_driver_wallet_for_booking RPC ($rpcErr), falling back to direct table update...');
+      }
+
+      // 2. Direct Table Fallback: Fetch current wallet
+      final wallet = await getDriverWallet(driverId);
+      final currentBalance = wallet?.balance ?? 0.0;
+      final newBalance = currentBalance - amount;
+
+      await client.from('driver_wallets').upsert({
+        'driver_id': driverId,
+        'balance': newBalance,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'driver_id');
+
+      // Record transaction
+      try {
+        await client.from('wallet_transactions').insert({
+          'driver_id': driverId,
+          'amount': -amount,
+          'type': 'booking_acceptance',
+          'description': 'Booking Acceptance Fee for Ride #$bookingId',
+          'reference_id': bookingId,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      } catch (txErr) {
+        debugPrint('Notice recording wallet transaction: $txErr');
+      }
+
+      // Add Notification
+      try {
+        await client.from('driver_notifications').insert({
+          'driver_id': driverId,
+          'title': 'Booking Fee Deducted (₹${amount.toStringAsFixed(0)}) 💳',
+          'message':
+              '₹${amount.toStringAsFixed(0)} was deducted from your wallet for accepting ride #$bookingId. New balance: ₹${newBalance.toStringAsFixed(2)}.',
+          'type': 'wallet_deduction_success',
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      } catch (notifErr) {
+        debugPrint('Notice creating driver notification: $notifErr');
+      }
+
+      return {
+        'success': true,
+        'balance': newBalance,
+        'message':
+            '₹${amount.toStringAsFixed(0)} deducted from wallet for booking acceptance',
+      };
+    } catch (e) {
+      debugPrint('Error deducting booking acceptance fee: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
   /// Invoke RPC function record_driver_rejection
   Future<Map<String, dynamic>> recordDriverRejection(String driverId) async {
     try {
@@ -1147,6 +1272,134 @@ class SupabaseService {
     }
   }
 
+  /// Invoke RPC function pay_driver_outstation_monthly_fee to purchase 1-month outstation pass (₹2,000)
+  Future<Map<String, dynamic>> payDriverOutstationMonthlyFee({
+    required String driverId,
+    double amount = 2000.0,
+  }) async {
+    try {
+      final response = await client.rpc(
+        'pay_driver_outstation_monthly_fee',
+        params: {
+          'p_driver_id': driverId,
+          'p_amount': amount,
+        },
+      );
+      if (response is Map) {
+        return Map<String, dynamic>.from(response);
+      }
+      return {
+        'success': false,
+        'message': 'Unexpected response from pay_driver_outstation_monthly_fee RPC'
+      };
+    } catch (e) {
+      debugPrint('Error invoking pay_driver_outstation_monthly_fee RPC: $e');
+      // Direct fallback if RPC is pending creation
+      try {
+        final wallet = await getDriverWallet(driverId);
+        final balance = wallet?.balance ?? 0.0;
+        if (balance < amount) {
+          return {
+            'success': false,
+            'message': 'Insufficient wallet balance. Minimum ₹${amount.toStringAsFixed(0)} required in wallet.',
+          };
+        }
+        final newBalance = balance - amount;
+        final newExpiry = (wallet?.outstationPassExpiresAt != null &&
+                wallet!.outstationPassExpiresAt!.isAfter(DateTime.now()))
+            ? wallet.outstationPassExpiresAt!.add(const Duration(days: 30))
+            : DateTime.now().add(const Duration(days: 30));
+
+        await client.from('driver_wallets').update({
+          'balance': newBalance,
+          'outstation_pass_expires_at': newExpiry.toIso8601String(),
+          'outstanding_pass_expires_at': newExpiry.toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('driver_id', driverId);
+
+        try {
+          await client.from('wallet_transactions').insert({
+            'driver_id': driverId,
+            'amount': -amount,
+            'type': 'outstation_monthly_fee',
+            'description': 'Outstation Platform Fee (1 Month Pass)',
+            'payment_method': 'Wallet',
+            'created_at': DateTime.now().toIso8601String(),
+          });
+        } catch (_) {}
+
+        return {
+          'success': true,
+          'balance': newBalance,
+          'outstation_pass_expires_at': newExpiry.toIso8601String(),
+          'message': '1-Month Outstation Pass activated successfully!',
+        };
+      } catch (fallbackErr) {
+        return {'success': false, 'message': fallbackErr.toString()};
+      }
+    }
+  }
+
+  /// Activate outstation monthly pass directly via Razorpay checkout
+  Future<Map<String, dynamic>> activateDriverOutstationPassDirect({
+    required String driverId,
+    required String paymentId,
+    double amount = 2000.0,
+  }) async {
+    try {
+      final response = await client.rpc(
+        'activate_driver_outstation_pass_direct',
+        params: {
+          'p_driver_id': driverId,
+          'p_payment_id': paymentId,
+          'p_amount': amount,
+        },
+      );
+      if (response is Map) {
+        return Map<String, dynamic>.from(response);
+      }
+      return {
+        'success': false,
+        'message': 'Unexpected response from activate_driver_outstation_pass_direct RPC'
+      };
+    } catch (e) {
+      debugPrint('Error invoking activate_driver_outstation_pass_direct RPC: $e');
+      try {
+        final wallet = await getDriverWallet(driverId);
+        final newExpiry = (wallet?.outstationPassExpiresAt != null &&
+                wallet!.outstationPassExpiresAt!.isAfter(DateTime.now()))
+            ? wallet.outstationPassExpiresAt!.add(const Duration(days: 30))
+            : DateTime.now().add(const Duration(days: 30));
+
+        await client.from('driver_wallets').update({
+          'outstation_pass_expires_at': newExpiry.toIso8601String(),
+          'outstanding_pass_expires_at': newExpiry.toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('driver_id', driverId);
+
+        try {
+          await client.from('wallet_transactions').insert({
+            'driver_id': driverId,
+            'amount': -amount,
+            'type': 'outstation_monthly_fee_direct',
+            'description': 'Outstation Platform Fee (Direct Razorpay 1-Month Pass)',
+            'reference_id': paymentId,
+            'payment_method': 'Razorpay',
+            'created_at': DateTime.now().toIso8601String(),
+          });
+        } catch (_) {}
+
+        return {
+          'success': true,
+          'outstation_pass_expires_at': newExpiry.toIso8601String(),
+          'message': '1-Month Outstation Pass activated successfully via direct payment!',
+        };
+      } catch (fallbackErr) {
+        return {'success': false, 'message': fallbackErr.toString()};
+      }
+    }
+  }
+
   /// Invoke RPC function withdraw_driver_wallet to process wallet withdrawal
   Future<Map<String, dynamic>> withdrawDriverWallet({
     required String driverId,
@@ -1170,6 +1423,97 @@ class SupabaseService {
     } catch (e) {
       debugPrint('Error invoking withdraw_driver_wallet RPC: $e');
       return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /// Invoke RPC function toggle_driver_outstation_booking to toggle outstation booking mode
+  Future<Map<String, dynamic>> toggleDriverOutstationBooking(String driverId,
+      {bool? isFreeOutstation}) async {
+    final freeOutstation = isFreeOutstation ?? _cachedPartnerAppConfig.isFreeDriverOutstation;
+    try {
+      final response = await client.rpc(
+        'toggle_driver_outstation_booking',
+        params: {'p_driver_id': driverId},
+      );
+      if (response is Map) {
+        final resMap = Map<String, dynamic>.from(response);
+
+        // If backend RPC returned pass_required but is_free_driver_outstation is true, bypass and enable
+        if (resMap['pass_required'] == true && freeOutstation) {
+          final wallet = await getDriverWallet(driverId);
+          final balance = wallet?.balance ?? 0.0;
+          if (balance >= 100) {
+            await client
+                .from('drivers')
+                .update({'outstation_booking': true, 'updated_at': DateTime.now().toUtc().toIso8601String()})
+                .eq('id', driverId);
+            return {
+              'success': true,
+              'outstation_booking': true,
+              'message': 'Outstation bookings enabled successfully',
+              'wallet_balance': balance,
+            };
+          } else {
+            return {
+              'success': false,
+              'outstation_booking': false,
+              'message':
+                  'Minimum ₹100 is required in your wallet to enable outstation bookings',
+              'current_balance': balance,
+              'required_balance': 100,
+            };
+          }
+        }
+
+        return resMap;
+      }
+      return {
+        'success': false,
+        'message': 'Unexpected response from toggle_driver_outstation_booking RPC'
+      };
+    } catch (e) {
+      debugPrint('Notice calling toggle_driver_outstation_booking RPC ($e), attempting direct fallback...');
+      try {
+        final driver = await getDriverById(driverId);
+        final currentStatus = driver?.outstationBooking ?? false;
+        if (currentStatus) {
+          await client
+              .from('drivers')
+              .update({'outstation_booking': false, 'updated_at': DateTime.now().toUtc().toIso8601String()})
+              .eq('id', driverId);
+          return {
+            'success': true,
+            'outstation_booking': false,
+            'message': 'Outstation bookings disabled',
+          };
+        } else {
+          final wallet = await getDriverWallet(driverId);
+          final balance = wallet?.balance ?? 0.0;
+          if (balance >= 100) {
+            await client
+                .from('drivers')
+                .update({'outstation_booking': true, 'updated_at': DateTime.now().toUtc().toIso8601String()})
+                .eq('id', driverId);
+            return {
+              'success': true,
+              'outstation_booking': true,
+              'message': 'Outstation bookings enabled successfully',
+              'wallet_balance': balance,
+            };
+          } else {
+            return {
+              'success': false,
+              'outstation_booking': false,
+              'message': 'Minimum ₹100 is required in your wallet to enable outstation bookings',
+              'current_balance': balance,
+              'required_balance': 100,
+            };
+          }
+        }
+      } catch (fallbackErr) {
+        debugPrint('Error in toggleDriverOutstationBooking fallback: $fallbackErr');
+        return {'success': false, 'message': fallbackErr.toString()};
+      }
     }
   }
 

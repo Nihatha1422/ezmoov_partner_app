@@ -7,6 +7,7 @@ class GradientButton extends StatefulWidget {
   final bool isLoading;
   final IconData? icon;
   final Gradient gradient;
+  final double? fontSize;
 
   const GradientButton({
     super.key,
@@ -15,6 +16,7 @@ class GradientButton extends StatefulWidget {
     this.isLoading = false,
     this.icon,
     this.gradient = AppColors.primaryGradient,
+    this.fontSize,
   });
 
   @override
@@ -106,9 +108,9 @@ class _GradientButtonState extends State<GradientButton> {
                         ],
                         Text(
                           widget.text,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 16,
+                            fontSize: widget.fontSize ?? 16,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5,
                           ),

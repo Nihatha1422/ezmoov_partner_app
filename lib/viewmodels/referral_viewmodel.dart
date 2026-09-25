@@ -124,7 +124,7 @@ class ReferralViewModel extends ChangeNotifier {
     final shareText = Uri.encodeComponent(
       'Join EZMoov as a Partner Driver and start earning daily! 🚚\n\n'
       'Use my Referral Code: *$_referralCode* during signup to get instant bonus perks.\n\n'
-      'Download & Register now!',
+      'Download & Register now: https://play.google.com/store/apps/details?id=com.ezmoov.partner',
     );
 
     final whatsappUri = Uri.parse('whatsapp://send?text=$shareText');

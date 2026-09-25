@@ -1,16 +1,19 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/services/supabase_service.dart';
 import '../core/services/audio_service.dart';
 import '../core/services/offline_trip_service.dart';
 import '../core/services/notification_service.dart';
+import '../core/services/google_directions_service.dart';
 import '../models/booking_model.dart';
 import '../models/bid_model.dart';
 import '../models/vehicle_type_model.dart';
+import '../models/intermediate_stop_model.dart';
+import 'package:provider/provider.dart';
 import '../views/home/widgets/incoming_ride_dialog.dart';
-import '../views/home/widgets/bidding_outstation_dialog.dart';
+import '../views/home/widgets/local_adda_bidding_dialog.dart';
+import 'profile_viewmodel.dart';
 
 class RideRequestViewModel extends ChangeNotifier {
   final SupabaseService _supabaseService = SupabaseService.instance;
@@ -29,6 +32,7 @@ class RideRequestViewModel extends ChangeNotifier {
   // Active Pending Bid State
   BookingModel? _activePendingBidBooking;
   BidModel? _activePendingBid;
+  StreamSubscription<List<BidModel>>? _bidSubscription;
 
   BookingModel? get activePendingBidBooking => _activePendingBidBooking;
   BidModel? get activePendingBid => _activePendingBid;
@@ -36,6 +40,8 @@ class RideRequestViewModel extends ChangeNotifier {
       _activePendingBid != null && _activePendingBidBooking != null;
 
   void withdrawBid() {
+    _bidSubscription?.cancel();
+    _bidSubscription = null;
     _activePendingBidBooking = null;
     _activePendingBid = null;
     notifyListeners();
@@ -187,14 +193,104 @@ class RideRequestViewModel extends ChangeNotifier {
     }
   }
 
-  /// Haversine formula to calculate distance in km between two GPS coordinates
-  double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+  final Map<String, double> _roadDistances = {};
+  double? getCachedRoadDistance(String bookingId) => _roadDistances[bookingId];
+  void setCachedRoadDistance(String bookingId, double distanceKm) {
+    _roadDistances[bookingId] = distanceKm;
+    notifyListeners();
+  }
+
+  /// Haversine straight-line distance formula
+  double calculateHaversineDistance(double lat1, double lon1, double lat2, double lon2) {
+    return GoogleDirectionsService.calculateHaversineDistance(lat1, lon1, lat2, lon2);
+  }
+
+  /// Calculates segment distance between two consecutive points with 1.3x city road factor
+  double calculateSegmentDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2, {
+    double fallbackKm = 2.5,
+  }) {
+    return GoogleDirectionsService.calculateSegmentDistance(
+      lat1,
+      lon1,
+      lat2,
+      lon2,
+      fallbackKm: fallbackKm,
+    );
+  }
+
+  /// Calculates total delivery trip distance along [Pickup -> Stops -> Drop] with 1.3x city road factor
+  double calculateRouteDistance({
+    required double startLat,
+    required double startLng,
+    required double endLat,
+    required double endLng,
+    List<IntermediateStopModel>? stops,
+    double fallbackKm = 12.4,
+    String? bookingId,
+  }) {
+    if (bookingId != null && _roadDistances.containsKey(bookingId)) {
+      return _roadDistances[bookingId]!;
+    }
+    return GoogleDirectionsService.calculateRouteDistance(
+      startLat: startLat,
+      startLng: startLng,
+      endLat: endLat,
+      endLng: endLng,
+      stops: stops,
+      fallbackKm: fallbackKm,
+    );
+  }
+
+  /// Convenience method to calculate total route distance for a given BookingModel
+  double calculateTripDistance(BookingModel booking) {
+    if (_roadDistances.containsKey(booking.id)) {
+      return _roadDistances[booking.id]!;
+    }
+    return calculateRouteDistance(
+      startLat: booking.pickupLat,
+      startLng: booking.pickupLng,
+      endLat: booking.dropLat,
+      endLng: booking.dropLng,
+      stops: booking.effectiveIntermediateStops,
+      bookingId: booking.id,
+    );
+  }
+
+  /// Asynchronously fetches real road distance (from Google Directions API if available)
+  Future<double> fetchBookingRoadDistance(BookingModel booking) async {
+    if (_roadDistances.containsKey(booking.id)) {
+      return _roadDistances[booking.id]!;
+    }
+    final dist = await GoogleDirectionsService.fetchRoadDistance(
+      startLat: booking.pickupLat,
+      startLng: booking.pickupLng,
+      endLat: booking.dropLat,
+      endLng: booking.dropLng,
+      stops: booking.effectiveIntermediateStops,
+    );
+    _roadDistances[booking.id] = dist;
+    notifyListeners();
+    return dist;
+  }
+
+  /// Distance in km between two GPS coordinates (with optional 1.3x road factor)
+  double calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2, {
+    bool applyRoadFactor = false,
+  }) {
     if (lat1 == 0.0 || lon1 == 0.0 || lat2 == 0.0 || lon2 == 0.0) return 0.0;
-    const p = 0.017453292519943295;
-    final a = 0.5 -
-        cos((lat2 - lat1) * p) / 2 +
-        cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
-    return 12742 * asin(sqrt(a)); // 2 * R * asin(...)
+    final km = GoogleDirectionsService.calculateHaversineDistance(lat1, lon1, lat2, lon2);
+    if (applyRoadFactor) {
+      return double.parse((km * 1.3).toStringAsFixed(1));
+    }
+    return double.parse(km.toStringAsFixed(1));
   }
 
   /// Clear active driver trip when booking is completed or cancelled
@@ -255,11 +351,16 @@ class RideRequestViewModel extends ChangeNotifier {
           final bidAmount =
               (bidResponse['driver_bid'] as num?)?.toDouble() ?? 0.0;
           withdrawBid(); // Clear pending floating banner
+          unawaited(_supabaseService.deductDriverWalletForBookingAcceptance(
+            driverId: driverId,
+            bookingId: bookingId,
+            amount: 100.0,
+          ));
           await checkActiveDriverTrip(driverId);
           if (context.mounted) {
             _showSnackBar(
               context,
-              '🎉 Customer accepted your bid of ₹${bidAmount.toStringAsFixed(0)}!',
+              '🎉 Customer accepted your bid of ₹${bidAmount.toStringAsFixed(0)}! ₹100 deducted from wallet.',
               backgroundColor: const Color(0xFF09A234),
             );
           }
@@ -415,6 +516,90 @@ class RideRequestViewModel extends ChangeNotifier {
     });
   }
 
+  /// Validates if an incoming booking meets vehicle match, distance & service criteria for a driver
+  bool isBookingEligibleForDriver({
+    required BookingModel booking,
+    required double driverLat,
+    required double driverLng,
+    bool isOutstationBookingEnabled = false,
+  }) {
+    // 1. VEHICLE TYPE MATCHING GUARD:
+    // Do NOT show alert dialog if booking's vehicle type does not match partner's vehicle type!
+    if (!_isVehicleTypeMatching(booking)) {
+      return false;
+    }
+
+    final dist = calculateDistance(
+        driverLat, driverLng, booking.pickupLat, booking.pickupLng);
+
+    final serviceName = booking.service
+            ?.toLowerCase()
+            .trim()
+            .replaceAll('-', '_')
+            .replaceAll(' ', '_') ??
+        '';
+    final isLocalAdda = serviceName.isEmpty ||
+        serviceName == 'local_adda' ||
+        serviceName == 'bidding_local_adda' ||
+        serviceName == 'biddinglocaladda' ||
+        serviceName == 'localadda' ||
+        serviceName.contains('local_adda');
+    final isOutstation = serviceName.contains('outstation') ||
+        serviceName == 'bidding_outstation' ||
+        serviceName == 'biddingoutstation';
+
+    // 1. Local Adda distance check: ONLY alert driver within 20.0 km
+    if (isLocalAdda) {
+      if (driverLat != 0.0 &&
+          driverLng != 0.0 &&
+          booking.pickupLat != 0.0 &&
+          booking.pickupLng != 0.0) {
+        if (dist > 20.0) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // 2. Outstation booking checks:
+    // Requirements:
+    // - driver outstation_booking must be true
+    // - driver within 40.0 km from pickup location
+    if (isOutstation) {
+      if (!isOutstationBookingEnabled) {
+        return false;
+      }
+
+      const outstationDistanceThresholdKm = 40.0;
+      if (driverLat != 0.0 &&
+          driverLng != 0.0 &&
+          booking.pickupLat != 0.0 &&
+          booking.pickupLng != 0.0) {
+        if (dist > outstationDistanceThresholdKm) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // 3. Far Driver distance check (for other standard services):
+    // - if far_driver is null or false: within 3.0 km (like local adda)
+    // - if far_driver is true: distance increases to 10.0 km
+    final isFarDriver = booking.farDriver == true;
+    final distanceThresholdKm = isFarDriver ? 10.0 : 3.0;
+
+    if (driverLat != 0.0 &&
+        driverLng != 0.0 &&
+        booking.pickupLat != 0.0 &&
+        booking.pickupLng != 0.0) {
+      if (dist > distanceThresholdKm) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   /// Process incoming bookings and trigger dialog modal if matching
   void _processBookingsList(
     List<BookingModel> bookings,
@@ -427,65 +612,34 @@ class RideRequestViewModel extends ChangeNotifier {
       checkPendingBidStatus(driverId, context);
     }
 
+    bool isOutstationEnabled = false;
+    if (context.mounted) {
+      try {
+        final profileVm = Provider.of<ProfileViewModel>(context, listen: false);
+        isOutstationEnabled = profileVm.driver?.outstationBooking ?? false;
+      } catch (_) {}
+    }
+
     BookingModel? matchingBooking;
 
     for (final booking in bookings) {
       if (booking.status == 'searching' &&
           !_declinedBookingIds.contains(booking.id)) {
-        // 1. VEHICLE TYPE MATCHING GUARD:
-        // Do NOT show alert dialog if booking's vehicle type does not match partner's vehicle type!
-        if (!_isVehicleTypeMatching(booking)) {
-          debugPrint(
-              '⏩ Skipping booking #${booking.id}: Booking vehicle type (${booking.vehicleTypeId}) does not match partner vehicle type ($_driverVehicleType / $_driverVehicleTypeId)');
-          continue;
-        }
-
         final dist = calculateDistance(
             driverLat, driverLng, booking.pickupLat, booking.pickupLng);
         debugPrint(
             '⚡ Booking #${booking.id} searching! Distance to pickup: ${dist.toStringAsFixed(2)} km');
 
-        final serviceName = booking.service
-                ?.toLowerCase()
-                .trim()
-                .replaceAll('-', '_')
-                .replaceAll(' ', '_') ??
-            '';
-        final isLocalAdda = serviceName.isEmpty ||
-            serviceName == 'local_adda' ||
-            serviceName == 'localadda';
-
-        // 1. Local Adda distance check: ONLY alert driver within 3.0 km
-        if (isLocalAdda) {
-          if (driverLat != 0.0 &&
-              driverLng != 0.0 &&
-              booking.pickupLat != 0.0 &&
-              booking.pickupLng != 0.0) {
-            if (dist > 3.0) {
-              debugPrint(
-                  '⏩ Skipping booking #${booking.id}: Service ($serviceName) is local_adda and distance to pickup is ${dist.toStringAsFixed(2)} km (exceeds 3 km threshold)');
-              continue;
-            }
-          }
-        }
-
-        // 2. Far Driver distance check (completely separate from local adda):
-        // - if far_driver is null or false: within 3.0 km (like local adda)
-        // - if far_driver is true: distance increases to 10.0 km
-        if (!isLocalAdda) {
-          final isFarDriver = booking.farDriver == true;
-          final distanceThresholdKm = isFarDriver ? 10.0 : 3.0;
-
-          if (driverLat != 0.0 &&
-              driverLng != 0.0 &&
-              booking.pickupLat != 0.0 &&
-              booking.pickupLng != 0.0) {
-            if (dist > distanceThresholdKm) {
-              debugPrint(
-                  '⏩ Skipping booking #${booking.id}: Service ($serviceName), far_driver=$isFarDriver, distance to pickup is ${dist.toStringAsFixed(2)} km (exceeds ${distanceThresholdKm.toStringAsFixed(0)} km threshold)');
-              continue;
-            }
-          }
+        if (!isBookingEligibleForDriver(
+          booking: booking,
+          driverLat: driverLat,
+          driverLng: driverLng,
+          isOutstationBookingEnabled: isOutstationEnabled,
+        )) {
+          final sName = booking.service ?? '';
+          debugPrint(
+              '⏩ Skipping booking #${booking.id}: Ineligible for driver (Service: $sName, Distance: ${dist.toStringAsFixed(2)} km, OutstationEnabled: $isOutstationEnabled)');
+          continue;
         }
 
         matchingBooking = booking;
@@ -577,17 +731,19 @@ class RideRequestViewModel extends ChangeNotifier {
               customerPhone: currentBooking.customerPhone,
             );
 
-            final serviceName = currentBooking.service
+            final sName = currentBooking.service
                     ?.toLowerCase()
                     .trim()
                     .replaceAll('-', '_')
                     .replaceAll(' ', '_') ??
                 '';
-            final isBiddingOutstation = serviceName == 'bidding_outstation' ||
-                serviceName == 'biddingoutstation';
+            final isLocalAddaBidding = sName == 'local_adda' ||
+                sName == 'bidding_local_adda' ||
+                sName == 'localadda' ||
+                sName == 'bidding_outstation';
 
-            if (isBiddingOutstation) {
-              showBiddingOutstationDialog(context, currentBooking, driverId);
+            if (isLocalAddaBidding) {
+              showLocalAddaBiddingDialog(context, currentBooking, driverId);
             } else {
               showIncomingRideDialog(context, currentBooking, driverId);
             }
@@ -607,7 +763,7 @@ class RideRequestViewModel extends ChangeNotifier {
     }
   }
 
-  /// Submit driver bid record for bidding_outstation service into public.bids table
+  /// Submit driver bid record for local_adda / bidding services into public.bids table
   Future<bool> submitBid({
     required String bookingId,
     required String driverId,
@@ -617,14 +773,14 @@ class RideRequestViewModel extends ChangeNotifier {
   }) async {
     try {
       _audioService.stopAlert();
-      final success = await _supabaseService.submitDriverBid(
+      final createdBid = await _supabaseService.submitDriverBid(
         bookingId: bookingId,
         driverId: driverId,
         currentRate: currentRate,
         driverBid: driverBid,
       );
 
-      if (success) {
+      if (createdBid != null) {
         _declinedBookingIds.add(bookingId);
 
         // Store active pending bid state so floating banner shows up on Home screen
@@ -633,18 +789,15 @@ class RideRequestViewModel extends ChangeNotifier {
           _activeBroadcastBooking = null;
         }
 
-        _activePendingBid = BidModel(
-          bookingId: bookingId,
-          driverId: driverId,
-          currentBookingRate: currentRate,
-          driverBid: driverBid,
-          status: 'pending',
-          createdAt: DateTime.now(),
-        );
-
+        _activePendingBid = createdBid;
         _isModalOpen = false;
         _activeShowingBookingId = null;
         notifyListeners();
+
+        // Start realtime listener on bids stream
+        if (context.mounted) {
+          _startBidRealtimeListener(bookingId, driverId, context);
+        }
 
         if (context.mounted) {
           _showSnackBar(
@@ -668,9 +821,95 @@ class RideRequestViewModel extends ChangeNotifier {
     }
   }
 
+  /// Subscribe to realtime updates for this driver's bid
+  void _startBidRealtimeListener(
+    String bookingId,
+    String driverId,
+    BuildContext context,
+  ) {
+    _bidSubscription?.cancel();
+    _bidSubscription = _supabaseService
+        .streamDriverBids(bookingId: bookingId, driverId: driverId)
+        .listen((bids) {
+      if (bids.isNotEmpty) {
+        final latestBid = bids.first;
+        final status = latestBid.status.toLowerCase();
+        if (status == 'accepted') {
+          if (context.mounted) {
+            _onBidAccepted(bookingId, driverId, context, latestBid);
+          }
+        } else if (status == 'closed' || status == 'rejected') {
+          if (context.mounted) {
+            _onBidClosed(bookingId, status, context);
+          }
+        }
+      }
+    }, onError: (e) {
+      debugPrint('Notice in bid stream listener: $e');
+    });
+  }
+
+  Future<void> _onBidAccepted(
+    String bookingId,
+    String driverId,
+    BuildContext context,
+    BidModel bid,
+  ) async {
+    _bidSubscription?.cancel();
+    _bidSubscription = null;
+
+    _audioService.stopAlert();
+    _audioService.playRideRequestAlert();
+
+    withdrawBid();
+
+    final booking = await _supabaseService.getBookingById(bookingId);
+    if (booking != null) {
+      _activeDriverTrip = booking.copyWith(
+        status: 'accepted',
+        driverId: driverId,
+      );
+    }
+
+    await _offlineTripService.saveActiveTrip(
+      bookingId: bookingId,
+      status: 'accepted',
+      driverId: driverId,
+    );
+    await checkActiveDriverTrip(driverId);
+
+    if (context.mounted) {
+      _showSnackBar(
+        context,
+        '🎉 Bid Accepted by Customer (₹${bid.driverBid.toStringAsFixed(0)})! Navigating to Pickup...',
+        backgroundColor: const Color(0xFF09A234),
+      );
+      GoRouter.of(context).go('/driver/pickup/$bookingId');
+    }
+  }
+
+  void _onBidClosed(
+    String bookingId,
+    String status,
+    BuildContext context,
+  ) {
+    _bidSubscription?.cancel();
+    _bidSubscription = null;
+    withdrawBid();
+    if (context.mounted) {
+      _showSnackBar(
+        context,
+        'Local Adda trip was closed or awarded to another driver.',
+        backgroundColor: Colors.black87,
+      );
+    }
+  }
+
   /// Stop stream listener and polling timer
   void stopBroadcastListening() {
     _audioService.stopAlert();
+    _bidSubscription?.cancel();
+    _bidSubscription = null;
     _subscription?.cancel();
     _subscription = null;
     _pollingTimer?.cancel();
@@ -686,6 +925,7 @@ class RideRequestViewModel extends ChangeNotifier {
     required String bookingId,
     required String driverId,
     required BuildContext context,
+    BookingModel? booking,
   }) async {
     if (_isAccepting) return;
 
@@ -709,6 +949,24 @@ class RideRequestViewModel extends ChangeNotifier {
       final message = result['message'] as String? ?? '';
 
       if (success) {
+        final targetBooking = booking ?? _activeBroadcastBooking;
+        final serviceName = targetBooking?.service
+                ?.toLowerCase()
+                .trim()
+                .replaceAll('-', '_')
+                .replaceAll(' ', '_') ??
+            '';
+        final isOutstation = serviceName.contains('outstation');
+
+        // If outstation ride, reduce ₹100 from driver's wallet upon acceptance
+        if (isOutstation) {
+          unawaited(_supabaseService.deductDriverWalletForBookingAcceptance(
+            driverId: driverId,
+            bookingId: bookingId,
+            amount: 100.0,
+          ));
+        }
+
         if (_isModalOpen) {
           Navigator.of(context, rootNavigator: true).pop();
           _isModalOpen = false;
@@ -718,6 +976,9 @@ class RideRequestViewModel extends ChangeNotifier {
         if (_activeBroadcastBooking != null) {
           _activeDriverTrip = _activeBroadcastBooking?.copyWith(
               status: 'accepted', driverId: driverId);
+        } else if (booking != null) {
+          _activeDriverTrip =
+              booking.copyWith(status: 'accepted', driverId: driverId);
         }
         await _offlineTripService.saveActiveTrip(
           bookingId: bookingId,
@@ -728,9 +989,13 @@ class RideRequestViewModel extends ChangeNotifier {
 
         if (!context.mounted) return;
 
+        final snackMessage = isOutstation
+            ? '🎉 Outstation Ride Accepted! ₹100 deducted from wallet. Navigating to Pickup...'
+            : '🎉 Ride Accepted! Navigating to Pickup...';
+
         _showSnackBar(
           context,
-          '🎉 Ride Accepted! Navigating to Pickup...',
+          snackMessage,
           backgroundColor: const Color(0xFF09A234),
         );
         GoRouter.of(context).go('/driver/pickup/$bookingId');

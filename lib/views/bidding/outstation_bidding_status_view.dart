@@ -89,12 +89,13 @@ class _OutstationBiddingStatusViewState extends State<OutstationBiddingStatusVie
             ? booking.fare
             : BookingModel.extractFare(booking.toJson());
 
-        final estDistanceKm = rideVm.calculateDistance(
-          booking.pickupLat,
-          booking.pickupLng,
-          booking.dropLat,
-          booking.dropLng,
-        );
+        final estDistanceKm = rideVm.calculateTripDistance(booking);
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (rideVm.getCachedRoadDistance(booking.id) == null) {
+            rideVm.fetchBookingRoadDistance(booking);
+          }
+        });
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -276,7 +277,7 @@ class _OutstationBiddingStatusViewState extends State<OutstationBiddingStatusVie
 
                   const SizedBox(height: 20),
 
-                  // 3. Route Details Card (Pickup & Drop)
+                  // 3. Route Details Card (Pickup, Stops & Drop)
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
@@ -318,6 +319,80 @@ class _OutstationBiddingStatusViewState extends State<OutstationBiddingStatusVie
                             ),
                           ],
                         ),
+                        if (booking.hasStops)
+                          ...booking.effectiveIntermediateStops.asMap().entries.map((entry) {
+                            final i = entry.key;
+                            final idx = i + 1;
+                            final stop = entry.value;
+                            final double prevLat = (i == 0)
+                                ? booking.pickupLat
+                                : booking.effectiveIntermediateStops[i - 1].latitude;
+                            final double prevLng = (i == 0)
+                                ? booking.pickupLng
+                                : booking.effectiveIntermediateStops[i - 1].longitude;
+                            final stopDistKm = rideVm.calculateSegmentDistance(
+                              prevLat,
+                              prevLng,
+                              stop.latitude,
+                              stop.longitude,
+                            );
+                            return Column(
+                              children: [
+                                Container(
+                                  margin: const EdgeInsets.only(left: 5, top: 4, bottom: 4),
+                                  height: 18,
+                                  width: 2,
+                                  color: const Color(0xFFF59E0B),
+                                ),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.location_on_outlined, color: Color(0xFFF59E0B), size: 14),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                'STOP $idx',
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFFD97706),
+                                                ),
+                                              ),
+                                              if (stopDistKm > 0)
+                                                Text(
+                                                  '${stopDistKm.toStringAsFixed(1)} km',
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Color(0xFFD97706),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            stop.address.isNotEmpty
+                                                ? stop.address
+                                                : 'Intermediate Stop $idx',
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          }),
                         Container(
                           margin: const EdgeInsets.only(left: 5, top: 4, bottom: 4),
                           height: 18,
@@ -332,13 +407,27 @@ class _OutstationBiddingStatusViewState extends State<OutstationBiddingStatusVie
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    l10n.dropAddressCaps,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textMuted,
-                                    ),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        l10n.dropAddressCaps,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
+                                      if (estDistanceKm > 0)
+                                        Text(
+                                          '${estDistanceKm.toStringAsFixed(1)} km total',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primaryDark,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                   const SizedBox(height: 2),
                                   Text(

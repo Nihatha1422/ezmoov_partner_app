@@ -609,6 +609,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get uploadAadhaarCard => 'Upload Aadhaar Card';
 
   @override
+  String get aadhaarCardFront => 'Aadhaar Card (Front)';
+
+  @override
+  String get uploadAadhaarCardFront => 'Upload Aadhaar Card (Front)';
+
+  @override
+  String get aadhaarCardBack => 'Aadhaar Card (Back)';
+
+  @override
+  String get uploadAadhaarCardBack => 'Upload Aadhaar Card (Back)';
+
+  @override
   String get drivingLicense => 'Driving License';
 
   @override
@@ -1998,4 +2010,69 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get freePassBadge => 'FREE PASS';
+
+  @override
+  String get outstationBookings => 'Outstation Bookings';
+
+  @override
+  String get outstationBookingsDesc =>
+      'Accept long distance & inter-city ride requests';
+
+  @override
+  String get outstationEnabledMsg => 'Outstation bookings enabled successfully';
+
+  @override
+  String get outstationDisabledMsg => 'Outstation bookings disabled';
+
+  @override
+  String get minWalletBalanceForOutstation =>
+      'Minimum ₹100 is required in your wallet to enable outstation bookings';
+
+  @override
+  String get minWallet100Badge => 'MIN ₹100 IN WALLET';
+
+  @override
+  String get outstationOnlineDesc => 'Active • Ready for outstation trips';
+
+  @override
+  String get outstationOfflineDesc =>
+      'Turn on to receive inter-city & outstation bids';
+
+  @override
+  String get outstandingMonthlyFee => 'Outstanding Monthly Fee';
+
+  @override
+  String get outstationMonthlyFee => 'Outstation Monthly Fee';
+
+  @override
+  String get freeOutstandingDesc =>
+      'Free for now • No monthly fee required for outstation';
+
+  @override
+  String get monthlyPassActive => 'Monthly Pass Active';
+
+  @override
+  String get monthlyPassExpired => 'Monthly Pass Expired';
+
+  @override
+  String passValidUntilDate(Object date) {
+    return 'Pass valid until $date';
+  }
+
+  @override
+  String payMonthlyFeeWallet(Object amount) {
+    return 'Pay from Wallet (₹$amount)';
+  }
+
+  @override
+  String payMonthlyFeeDirect(Object amount) {
+    return 'Pay Directly (₹$amount)';
+  }
+
+  @override
+  String get outstationPassRequired => 'Outstation Monthly Pass Required';
+
+  @override
+  String get outstationPassRequiredDesc =>
+      'A monthly fee of ₹2,000 is required to enable long-distance & outstation orders.';
 }

@@ -87,6 +87,22 @@ class _WalletViewState extends State<WalletView> {
           return;
         }
       }
+    } else if (paymentType == 'direct_outstation_fee') {
+      if (driverId.isNotEmpty) {
+        final success = await walletVm.activateOutstationPassDirect(
+          driverId: driverId,
+          paymentId: paymentId,
+          context: context,
+        );
+        if (!success && mounted) {
+          RechargeResultDialog.show(
+            context: context,
+            isSuccess: false,
+            errorMessage: 'Payment received but failed to activate Outstation Monthly Pass. Reference: $paymentId',
+          );
+          return;
+        }
+      }
     } else if (rechargedAmt > 0 && driverId.isNotEmpty) {
       final res = await SupabaseService.instance.rechargeDriverWallet(
         driverId: driverId,
@@ -170,6 +186,24 @@ class _WalletViewState extends State<WalletView> {
       driverPhone: profile?.phone ?? '',
       driverEmail: profile?.email ?? '',
       paymentType: 'direct_daily_fee',
+    );
+  }
+
+  void _payOutstationFeeWithoutWallet(BuildContext context, String driverId) {
+    final walletVm = context.read<WalletViewModel>();
+    final profile = context.read<ProfileViewModel>().driver;
+    final fee = walletVm.outstationMonthlyFee;
+
+    _pendingRechargeAmount = fee;
+    _pendingPaymentType = 'direct_outstation_fee';
+
+    RazorpayService.instance.openCheckout(
+      amount: fee,
+      driverId: driverId,
+      driverName: profile?.name ?? 'EZMoov Partner',
+      driverPhone: profile?.phone ?? '',
+      driverEmail: profile?.email ?? '',
+      paymentType: 'direct_outstation_fee',
     );
   }
 
@@ -1340,6 +1374,198 @@ class _WalletViewState extends State<WalletView> {
                             ),
                           ],
                         ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                // 3B. OUTSTANDING / OUTSTATION MONTHLY FEE CARD (₹2,000 / month)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: (walletVm.isOutstationPassActive || profileVm.isFreeDriverOutstation)
+                            ? const Color(0xFF09A234).withValues(alpha: 0.3)
+                            : const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: (walletVm.isOutstationPassActive || profileVm.isFreeDriverOutstation)
+                                          ? const Color(0xFF09A234).withValues(alpha: 0.1)
+                                          : const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Icon(
+                                      (walletVm.isOutstationPassActive || profileVm.isFreeDriverOutstation)
+                                          ? Icons.verified_user_rounded
+                                          : Icons.alt_route_rounded,
+                                      color: (walletVm.isOutstationPassActive || profileVm.isFreeDriverOutstation)
+                                          ? const Color(0xFF09A234)
+                                          : const Color(0xFF7C3AED),
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          l10n.outstandingMonthlyFee,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          profileVm.isFreeDriverOutstation
+                                              ? l10n.freeOutstandingDesc
+                                              : (walletVm.isOutstationPassActive
+                                                  ? '${l10n.monthlyPassActive} (${l10n.passValidUntilDate(walletVm.outstationPassExpiresAt != null ? DateFormat('MMM dd, yyyy').format(walletVm.outstationPassExpiresAt!) : '')})'
+                                                  : '${l10n.monthlyPassExpired} • ₹${walletVm.outstationMonthlyFee.toStringAsFixed(0)} / month'),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: (walletVm.isOutstationPassActive || profileVm.isFreeDriverOutstation)
+                                                ? const Color(0xFF09A234)
+                                                : const Color(0xFF7C3AED),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: (walletVm.isOutstationPassActive || profileVm.isFreeDriverOutstation)
+                                    ? const Color(0xFFDCFCE7)
+                                    : const Color(0xFFF3E8FF),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                profileVm.isFreeDriverOutstation
+                                    ? l10n.freePassBadge
+                                    : (walletVm.isOutstationPassActive
+                                        ? l10n.monthlyPassActive
+                                        : l10n.monthlyPassExpired),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: (walletVm.isOutstationPassActive || profileVm.isFreeDriverOutstation)
+                                      ? const Color(0xFF09A234)
+                                      : const Color(0xFF7C3AED),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // Pay Monthly Outstation Fee Action Buttons if Pass is Expired/Unpaid and NOT free
+                        if (!walletVm.isOutstationPassActive &&
+                            !profileVm.isFreeDriverOutstation &&
+                            effectiveDriverId != null) ...[
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: walletVm.isPayingOutstationFee
+                                      ? null
+                                      : () {
+                                          walletVm.payOutstationMonthlyFee(
+                                            driverId: effectiveDriverId,
+                                            context: context,
+                                          );
+                                        },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF7C3AED),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  icon: walletVm.isPayingOutstationFee
+                                      ? const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.account_balance_wallet_rounded, size: 16),
+                                  label: Text(
+                                    walletVm.isPayingOutstationFee
+                                        ? l10n.updatingStatus
+                                        : l10n.payMonthlyFeeWallet(walletVm.outstationMonthlyFee.toStringAsFixed(0)),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    _payOutstationFeeWithoutWallet(context, effectiveDriverId);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF9333EA),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.flash_on_rounded, size: 16),
+                                  label: Text(
+                                    l10n.payMonthlyFeeDirect(walletVm.outstationMonthlyFee.toStringAsFixed(0)),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

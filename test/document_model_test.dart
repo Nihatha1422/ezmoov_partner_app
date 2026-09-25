@@ -3,11 +3,12 @@ import 'package:ezmoov_partner_app/models/document_model.dart';
 
 void main() {
   group('DocumentModel serialization & deserialization tests', () {
-    test('fromJson correctly parses dl_back_url and rc_back_url', () {
+    test('fromJson correctly parses aadhaar_back_url, dl_back_url and rc_back_url', () {
       final json = {
         'id': 'doc-123',
         'driver_id': 'driver-456',
         'aadhaar_url': 'https://storage/aadhaar.jpg',
+        'aadhaar_back_url': 'https://storage/aadhaar_back.jpg',
         'driving_license_url': 'https://storage/dl.jpg',
         'dl_back_url': 'https://storage/dl_back.jpg',
         'vehicle_rc_url': 'https://storage/rc.jpg',
@@ -28,6 +29,8 @@ void main() {
 
       expect(doc.id, 'doc-123');
       expect(doc.driverId, 'driver-456');
+      expect(doc.aadhaarUrl, 'https://storage/aadhaar.jpg');
+      expect(doc.aadhaarBackUrl, 'https://storage/aadhaar_back.jpg');
       expect(doc.drivingLicenseUrl, 'https://storage/dl.jpg');
       expect(doc.dlBackUrl, 'https://storage/dl_back.jpg');
       expect(doc.vehicleRcUrl, 'https://storage/rc.jpg');
@@ -36,25 +39,28 @@ void main() {
       expect(doc.createdAt, DateTime.parse('2026-09-15T12:00:00.000Z'));
     });
 
-    test('fromJson falls back to dl_back and rc_back column names', () {
+    test('fromJson falls back to aadhaar_back, dl_back and rc_back column names', () {
       final json = {
         'id': 'doc-789',
         'driver_id': 'driver-456',
+        'aadhaar_back': 'https://storage/aadhaar_back_alt.jpg',
         'dl_back': 'https://storage/dl_back_alt.jpg',
         'rc_back': 'https://storage/rc_back_alt.jpg',
       };
 
       final doc = DocumentModel.fromJson(json);
 
+      expect(doc.aadhaarBackUrl, 'https://storage/aadhaar_back_alt.jpg');
       expect(doc.dlBackUrl, 'https://storage/dl_back_alt.jpg');
       expect(doc.rcBackUrl, 'https://storage/rc_back_alt.jpg');
     });
 
-    test('toJson produces correct map with dl_back_url and rc_back_url', () {
+    test('toJson produces correct map with aadhaar_back_url, dl_back_url and rc_back_url', () {
       final doc = DocumentModel(
         id: 'doc-123',
         driverId: 'driver-456',
         aadhaarUrl: 'https://storage/aadhaar.jpg',
+        aadhaarBackUrl: 'https://storage/aadhaar_back.jpg',
         drivingLicenseUrl: 'https://storage/dl.jpg',
         dlBackUrl: 'https://storage/dl_back.jpg',
         vehicleRcUrl: 'https://storage/rc.jpg',
@@ -73,6 +79,8 @@ void main() {
 
       expect(json['id'], 'doc-123');
       expect(json['driver_id'], 'driver-456');
+      expect(json['aadhaar_url'], 'https://storage/aadhaar.jpg');
+      expect(json['aadhaar_back_url'], 'https://storage/aadhaar_back.jpg');
       expect(json['driving_license_url'], 'https://storage/dl.jpg');
       expect(json['dl_back_url'], 'https://storage/dl_back.jpg');
       expect(json['vehicle_rc_url'], 'https://storage/rc.jpg');

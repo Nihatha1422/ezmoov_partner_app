@@ -10,6 +10,8 @@ class VehicleTypeModel {
   final bool active;
   final int graceTime;
   final num waitTime;
+  final double millageCost;
+  final double outstationCharges;
 
   VehicleTypeModel({
     required this.id,
@@ -23,9 +25,12 @@ class VehicleTypeModel {
     this.active = true,
     this.graceTime = 15,
     this.waitTime = 30,
+    this.millageCost = 0.0,
+    this.outstationCharges = 0.0,
   });
 
   double get estFare => baseFare;
+  double get mileageCost => millageCost;
 
   factory VehicleTypeModel.fromJson(Map<String, dynamic> json) {
     final isAct =
@@ -52,6 +57,16 @@ class VehicleTypeModel {
           (json['wait_time'] as num?) ??
           (json['waitTime'] as num?) ??
           30,
+      millageCost: (json['millage_cost'] as num?)?.toDouble() ??
+          (json['mileage_cost'] as num?)?.toDouble() ??
+          (json['millageCost'] as num?)?.toDouble() ??
+          (json['mileageCost'] as num?)?.toDouble() ??
+          0.0,
+      outstationCharges: (json['outstation_charges'] as num?)?.toDouble() ??
+          (json['outstation_charge'] as num?)?.toDouble() ??
+          (json['outstationCharges'] as num?)?.toDouble() ??
+          (json['outstationCharge'] as num?)?.toDouble() ??
+          0.0,
     );
   }
 
@@ -68,6 +83,8 @@ class VehicleTypeModel {
       'active': active,
       'grace_time': graceTime,
       'waittime': waitTime,
+      'millage_cost': millageCost,
+      'outstation_charges': outstationCharges,
     };
   }
 }

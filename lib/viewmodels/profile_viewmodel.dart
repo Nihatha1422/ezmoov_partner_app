@@ -20,6 +20,7 @@ import 'wallet_viewmodel.dart';
 import '../models/wallet_model.dart';
 import '../models/partner_app_config_model.dart';
 import '../core/constants/app_constants.dart';
+import '../l10n/generated/app_localizations.dart';
 
 class ProfileViewModel extends ChangeNotifier {
   final SupabaseService _supabaseService = SupabaseService.instance;
@@ -48,6 +49,7 @@ class ProfileViewModel extends ChangeNotifier {
   PartnerAppConfigModel _appConfig = PartnerAppConfigModel.defaultConfig();
   PartnerAppConfigModel get appConfig => _appConfig;
   bool get isFreeDriverLogin => _appConfig.isFreeDriverLogin;
+  bool get isFreeDriverOutstation => _appConfig.isFreeDriverOutstation;
 
   bool _isOnline = false;
   bool get isOnline => _isOnline;
@@ -128,8 +130,8 @@ class ProfileViewModel extends ChangeNotifier {
     _errorMessage = null;
 
     try {
-      // Fetch latest app configuration asynchronously
-      unawaited(fetchAppConfig());
+      // Fetch latest app configuration matching highest app version before checking online/fee status
+      await fetchAppConfig(context);
 
       DriverModel? loadedDriver;
       if (driverIdOrPhone.startsWith('+') ||
@@ -204,6 +206,7 @@ class ProfileViewModel extends ChangeNotifier {
         if (_isOnline && context != null && context.mounted) {
           final walletVm = Provider.of<WalletViewModel>(context, listen: false);
           walletVm.setFreeDriverLogin(isFreeDriverLogin);
+          walletVm.setFreeDriverOutstation(isFreeDriverOutstation);
           await walletVm.fetchWalletData(loadedDriver.id!);
 
           if ((walletVm.isBlocked || !walletVm.isPassActive) && !isFreeDriverLogin) {
@@ -349,6 +352,15 @@ class ProfileViewModel extends ChangeNotifier {
                   notifyListeners();
                 }
               }
+
+              if (newRecord.containsKey('outstation_booking')) {
+                final newOutstation = newRecord['outstation_booking'] as bool? ?? false;
+                if ((_driver?.outstationBooking ?? false) != newOutstation) {
+                  debugPrint('⚡ Outstation Booking changed via Realtime: ${_driver?.outstationBooking} -> $newOutstation');
+                  _driver = _driver?.copyWith(outstationBooking: newOutstation);
+                  notifyListeners();
+                }
+              }
             },
           )
           .subscribe();
@@ -367,6 +379,64 @@ class ProfileViewModel extends ChangeNotifier {
 
   bool _isTogglingOnline = false;
   bool get isTogglingOnline => _isTogglingOnline;
+
+  bool _isTogglingOutstation = false;
+  bool get isTogglingOutstation => _isTogglingOutstation;
+  bool get isOutstationBookingEnabled => _driver?.outstationBooking ?? false;
+
+  /// Toggle Outstation Booking status via Supabase RPC function toggle_driver_outstation_booking
+  Future<bool> toggleOutstationBooking(BuildContext context) async {
+    if (_driver == null || _driver!.id == null) return false;
+    if (_isTogglingOutstation) return false;
+
+    _isTogglingOutstation = true;
+    notifyListeners();
+
+    try {
+      final result = await _supabaseService.toggleDriverOutstationBooking(
+        _driver!.id!,
+        isFreeOutstation: isFreeDriverOutstation,
+      );
+      final bool success = result['success'] == true;
+      final bool newStatus = result['outstation_booking'] == true;
+      final String message = result['message'] as String? ?? '';
+
+      if (success) {
+        _driver = _driver?.copyWith(outstationBooking: newStatus);
+        if (context.mounted) {
+          final l10n = AppLocalizations.of(context);
+          _showSnackBar(
+            context,
+            newStatus
+                ? (l10n?.outstationEnabledMsg ?? 'Outstation bookings enabled')
+                : (l10n?.outstationDisabledMsg ?? 'Outstation bookings disabled'),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          final l10n = AppLocalizations.of(context);
+          _showSnackBar(
+            context,
+            message.isNotEmpty
+                ? message
+                : (l10n?.minWalletBalanceForOutstation ??
+                    'Minimum ₹100 is required in your wallet to enable outstation bookings'),
+          );
+        }
+      }
+
+      return success;
+    } catch (e) {
+      debugPrint('Error toggling outstation booking: $e');
+      if (context.mounted) {
+        _showSnackBar(context, 'Failed to update outstation booking: $e');
+      }
+      return false;
+    } finally {
+      _isTogglingOutstation = false;
+      notifyListeners();
+    }
+  }
 
   /// Direct setter for driver profile (used during auth/onboarding)
   void updateDriverLocal(DriverModel driverModel) {
@@ -870,7 +940,9 @@ class ProfileViewModel extends ChangeNotifier {
         forceRefresh: true,
       );
       if (context != null && context.mounted) {
-        context.read<WalletViewModel>().setFreeDriverLogin(_appConfig.isFreeDriverLogin);
+        final wVm = context.read<WalletViewModel>();
+        wVm.setFreeDriverLogin(_appConfig.isFreeDriverLogin);
+        wVm.setFreeDriverOutstation(_appConfig.isFreeDriverOutstation);
       }
       notifyListeners();
     } catch (e) {

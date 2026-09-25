@@ -68,4 +68,26 @@ class BidModel {
       if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
     };
   }
+
+  BidModel copyWith({
+    String? id,
+    String? bookingId,
+    String? driverId,
+    double? currentBookingRate,
+    double? driverBid,
+    String? status,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return BidModel(
+      id: id ?? this.id,
+      bookingId: bookingId ?? this.bookingId,
+      driverId: driverId ?? this.driverId,
+      currentBookingRate: currentBookingRate ?? this.currentBookingRate,
+      driverBid: driverBid ?? this.driverBid,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }

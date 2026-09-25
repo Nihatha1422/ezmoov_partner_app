@@ -10,6 +10,7 @@ class PartnerAppConfigModel {
   final String minVersion;
   final double registrationFee;
   final bool isFreeDriverLogin;
+  final bool isFreeDriverOutstation;
   final String maintenanceTitle;
   final String maintenanceMessage;
   final DateTime? createdAt;
@@ -26,6 +27,7 @@ class PartnerAppConfigModel {
     this.minVersion = '1.0.0',
     this.registrationFee = 499.00,
     this.isFreeDriverLogin = false,
+    this.isFreeDriverOutstation = false,
     this.maintenanceTitle = 'App Under Maintenance',
     this.maintenanceMessage = 'We are currently undergoing scheduled maintenance. Please check back shortly.',
     this.createdAt,
@@ -84,6 +86,18 @@ class PartnerAppConfigModel {
       freeLogin = json['isFreeDriverLogin'] == true || json['isFreeDriverLogin'].toString() == 'true';
     }
 
+    // 5. Free driver outstation flag (support 'is_free_driver_outstation', 'isFreeDriverOutstation', 'is_free_driver_outstanding', 'isFreeDriverOutstanding')
+    bool freeOutstation = false;
+    if (json.containsKey('is_free_driver_outstation') && json['is_free_driver_outstation'] != null) {
+      freeOutstation = json['is_free_driver_outstation'] == true || json['is_free_driver_outstation'].toString() == 'true';
+    } else if (json.containsKey('isFreeDriverOutstation') && json['isFreeDriverOutstation'] != null) {
+      freeOutstation = json['isFreeDriverOutstation'] == true || json['isFreeDriverOutstation'].toString() == 'true';
+    } else if (json.containsKey('is_free_driver_outstanding') && json['is_free_driver_outstanding'] != null) {
+      freeOutstation = json['is_free_driver_outstanding'] == true || json['is_free_driver_outstanding'].toString() == 'true';
+    } else if (json.containsKey('isFreeDriverOutstanding') && json['isFreeDriverOutstanding'] != null) {
+      freeOutstation = json['isFreeDriverOutstanding'] == true || json['isFreeDriverOutstanding'].toString() == 'true';
+    }
+
     return PartnerAppConfigModel(
       id: json['id'] != null ? int.tryParse(json['id'].toString()) ?? 1 : 1,
       version: json['version']?.toString() ?? '1.0.0',
@@ -99,6 +113,7 @@ class PartnerAppConfigModel {
       minVersion: json['min_version']?.toString() ?? json['minVersion']?.toString() ?? '1.0.0',
       registrationFee: fee,
       isFreeDriverLogin: freeLogin,
+      isFreeDriverOutstation: freeOutstation,
       maintenanceTitle: json['maintenance_title']?.toString() ??
           json['maintenanceTitle']?.toString() ??
           'App Under Maintenance',
@@ -125,6 +140,7 @@ class PartnerAppConfigModel {
       'regestration_fee': registrationFee,
       'registration_fee': registrationFee,
       'is_free_driver_login': isFreeDriverLogin,
+      'is_free_driver_outstation': isFreeDriverOutstation,
       'maintenance_title': maintenanceTitle,
       'maintenance_message': maintenanceMessage,
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
@@ -143,6 +159,7 @@ class PartnerAppConfigModel {
     String? minVersion,
     double? registrationFee,
     bool? isFreeDriverLogin,
+    bool? isFreeDriverOutstation,
     String? maintenanceTitle,
     String? maintenanceMessage,
     DateTime? createdAt,
@@ -159,6 +176,7 @@ class PartnerAppConfigModel {
       minVersion: minVersion ?? this.minVersion,
       registrationFee: registrationFee ?? this.registrationFee,
       isFreeDriverLogin: isFreeDriverLogin ?? this.isFreeDriverLogin,
+      isFreeDriverOutstation: isFreeDriverOutstation ?? this.isFreeDriverOutstation,
       maintenanceTitle: maintenanceTitle ?? this.maintenanceTitle,
       maintenanceMessage: maintenanceMessage ?? this.maintenanceMessage,
       createdAt: createdAt ?? this.createdAt,
@@ -168,6 +186,6 @@ class PartnerAppConfigModel {
 
   @override
   String toString() {
-    return 'PartnerAppConfigModel(id: $id, version: $version, isMaintenance: $isMaintenance, update: $forceUpdate, registrationFee: $registrationFee, isFreeDriverLogin: $isFreeDriverLogin)';
+    return 'PartnerAppConfigModel(id: $id, version: $version, isMaintenance: $isMaintenance, update: $forceUpdate, registrationFee: $registrationFee, isFreeDriverLogin: $isFreeDriverLogin, isFreeDriverOutstation: $isFreeDriverOutstation)';
   }
 }

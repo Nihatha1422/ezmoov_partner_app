@@ -49,6 +49,14 @@ class IncomingRideDialog extends StatelessWidget {
             ? activeBooking.customerName!
             : l10n.customerDeliveryRequest;
 
+        final serviceName = activeBooking.service
+                ?.toLowerCase()
+                .trim()
+                .replaceAll('-', '_')
+                .replaceAll(' ', '_') ??
+            '';
+        final isOutstation = serviceName.contains('outstation');
+
         return Container(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.85,
@@ -79,23 +87,31 @@ class IncomingRideDialog extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFDCFCE7),
+                            color: isOutstation
+                                ? const Color(0xFFEDE9FE)
+                                : const Color(0xFFDCFCE7),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.radar_rounded,
-                            color: AppColors.primary,
+                            color: isOutstation
+                                ? const Color(0xFF7C3AED)
+                                : AppColors.primary,
                             size: 24,
                           ),
                         ),
                         const SizedBox(width: 10),
                         Flexible(
                           child: Text(
-                            l10n.incomingRideRequestCaps,
-                            style: const TextStyle(
+                            isOutstation
+                                ? l10n.outstationBooking.toUpperCase()
+                                : l10n.incomingRideRequestCaps,
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.primaryDark,
+                              color: isOutstation
+                                  ? const Color(0xFF6D28D9)
+                                  : AppColors.primaryDark,
                               letterSpacing: 0.5,
                             ),
                             maxLines: 1,
@@ -110,21 +126,27 @@ class IncomingRideDialog extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: activeBooking.farDriver == true
-                          ? const Color(0xFFDCFCE7)
-                          : AppColors.secondary.withValues(alpha: 0.2),
+                      color: isOutstation
+                          ? const Color(0xFFEDE9FE)
+                          : activeBooking.farDriver == true
+                              ? const Color(0xFFDCFCE7)
+                              : AppColors.secondary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      activeBooking.farDriver == true
-                          ? l10n.within10km
-                          : l10n.within3km,
+                      isOutstation
+                          ? '${l10n.outstationBooking} • ${l10n.withinDistance("40 km")}'
+                          : activeBooking.farDriver == true
+                              ? l10n.within10km
+                              : l10n.within3km,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: activeBooking.farDriver == true
-                            ? const Color(0xFF16A34A)
-                            : const Color(0xFFD97706),
+                        color: isOutstation
+                            ? const Color(0xFF6D28D9)
+                            : activeBooking.farDriver == true
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFFD97706),
                       ),
                     ),
                   ),
@@ -170,6 +192,15 @@ class IncomingRideDialog extends StatelessWidget {
                               ),
                             ],
                           )
+                        else if (isOutstation)
+                          Text(
+                            l10n.outstationBooking,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF6D28D9),
+                            ),
+                          )
                         else
                           Text(
                             l10n.standardDeliveryOrder,
@@ -193,30 +224,16 @@ class IncomingRideDialog extends StatelessWidget {
                               ? activeBooking.farDriverIncentive!
                               : 0.0;
                       final totalDisplay = baseFare + incentive;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            totalDisplay > 0
-                                ? '₹ ${totalDisplay.toStringAsFixed(2)}'
-                                : '₹ 0.00',
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          if (incentive > 0)
-                            Text(
-                              l10n.inclIncentive(incentive.toStringAsFixed(0)),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF10B981),
-                              ),
-                            ),
-                        ],
+                      return Text(
+                        totalDisplay > 0
+                            ? '₹ ${totalDisplay.toStringAsFixed(2)}'
+                            : '₹ 0.00',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                          letterSpacing: -0.5,
+                        ),
                       );
                     },
                   ),
@@ -251,12 +268,8 @@ class IncomingRideDialog extends StatelessWidget {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  l10n.intermediateStopsBadge(
-                                    activeBooking.stopsCharge > 0
-                                        ? activeBooking.stopsCharge.toStringAsFixed(0)
-                                        : (activeBooking.stopsCount * 25).toString(),
-                                    activeBooking.stopsCount,
-                                  ),
+                                  l10n.stopsBadgeCount(
+                                      activeBooking.stopsCount),
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -298,49 +311,22 @@ class IncomingRideDialog extends StatelessWidget {
                                   driverLat,
                                   driverLng,
                                   activeBooking.pickupLat,
-                                  activeBooking.pickupLng)
+                                  activeBooking.pickupLng,
+                                  applyRoadFactor: true,
+                                )
                               : 0.0;
 
-                          double calculatedTotalTripDist = 0.0;
-                          if (activeBooking.pickupLat != 0.0 &&
-                                  activeBooking.pickupLng != 0.0) {
-                            if (activeBooking.hasStops &&
-                                activeBooking
-                                    .effectiveIntermediateStops.isNotEmpty) {
-                              double currentLat = activeBooking.pickupLat;
-                              double currentLng = activeBooking.pickupLng;
-                              for (final stop
-                                  in activeBooking.effectiveIntermediateStops) {
-                                if (stop.latitude != 0.0 &&
-                                    stop.longitude != 0.0) {
-                                  calculatedTotalTripDist +=
-                                      vm.calculateDistance(
-                                          currentLat,
-                                          currentLng,
-                                          stop.latitude,
-                                          stop.longitude);
-                                  currentLat = stop.latitude;
-                                  currentLng = stop.longitude;
-                                }
-                              }
-                              if (activeBooking.dropLat != 0.0 &&
-                                  activeBooking.dropLng != 0.0) {
-                                calculatedTotalTripDist += vm.calculateDistance(
-                                    currentLat,
-                                    currentLng,
-                                    activeBooking.dropLat,
-                                    activeBooking.dropLng);
-                              }
-                            } else if (activeBooking.dropLat != 0.0 &&
-                                activeBooking.dropLng != 0.0) {
-                              calculatedTotalTripDist = vm.calculateDistance(
-                                  activeBooking.pickupLat,
-                                  activeBooking.pickupLng,
-                                  activeBooking.dropLat,
-                                  activeBooking.dropLng);
+                          // Compute customer trip distance [Pickup -> Stops -> Drop]
+                          final dropDistKm =
+                              vm.calculateTripDistance(activeBooking);
+
+                          // Trigger background fetch for Google Directions road distance if available
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (vm.getCachedRoadDistance(activeBooking.id) ==
+                                null) {
+                              vm.fetchBookingRoadDistance(activeBooking);
                             }
-                          }
-                          final dropDistKm = calculatedTotalTripDist;
+                          });
 
                           return Container(
                             width: double.infinity,
@@ -353,7 +339,7 @@ class IncomingRideDialog extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Pickup Location Tile with Distance Pill
+                                // Pickup Location Tile with Driver Arrival Distance Pill
                                 RouteLocationTile(
                                   type: LocationTileType.pickup,
                                   address: activeBooking.pickupAddress,
@@ -363,7 +349,7 @@ class IncomingRideDialog extends StatelessWidget {
                                 const DashedLineConnector(
                                     height: 20, color: Color(0xFF10B981)),
 
-                                // Intermediate Stops Loop
+                                // Intermediate Stops Loop with Segment Distance
                                 if (activeBooking.hasStops)
                                   ...activeBooking.effectiveIntermediateStops
                                       .asMap()
@@ -384,13 +370,13 @@ class IncomingRideDialog extends StatelessWidget {
                                             .effectiveIntermediateStops[i - 1]
                                             .longitude;
 
-                                    final stopDistKm = (prevLat != 0.0 &&
-                                            prevLng != 0.0 &&
-                                            stop.latitude != 0.0 &&
-                                            stop.longitude != 0.0)
-                                        ? vm.calculateDistance(prevLat, prevLng,
-                                            stop.latitude, stop.longitude)
-                                        : 0.0;
+                                    final stopDistKm =
+                                        vm.calculateSegmentDistance(
+                                      prevLat,
+                                      prevLng,
+                                      stop.latitude,
+                                      stop.longitude,
+                                    );
 
                                     return Column(
                                       crossAxisAlignment:
@@ -409,7 +395,7 @@ class IncomingRideDialog extends StatelessWidget {
                                     );
                                   }),
 
-                                // Drop Location Tile with Distance Pill
+                                // Drop Location Tile with Total Trip Distance Pill
                                 RouteLocationTile(
                                   type: LocationTileType.drop,
                                   address: activeBooking.dropAddress,
@@ -425,7 +411,37 @@ class IncomingRideDialog extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              // Outstation ₹100 Wallet Deduction Notice
+              if (isOutstation)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F3FF),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFDDD6FE)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.account_balance_wallet_outlined,
+                          size: 16, color: Color(0xFF7C3AED)),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '₹100 will be deducted from your wallet upon accepting this outstation trip.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF6D28D9),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 4),
 
               // Action Buttons: Decline & Accept (pinned at bottom!)
               Row(
@@ -470,6 +486,7 @@ class IncomingRideDialog extends StatelessWidget {
                           bookingId: booking.id,
                           driverId: driverId,
                           context: context,
+                          booking: activeBooking,
                         );
                       },
                     ),

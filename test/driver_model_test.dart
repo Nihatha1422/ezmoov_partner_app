@@ -72,4 +72,59 @@ void main() {
       expect(updated.name, equals('Ramesh Singh'));
     });
   });
+
+  group('DriverModel outstation_booking column tests', () {
+    test('Defaults outstationBooking to false when missing from JSON', () {
+      final json = {
+        'id': 'drv-uuid-1234',
+        'name': 'Ramesh Singh',
+        'email': 'ramesh@example.com',
+        'phone': '+919876543210',
+      };
+
+      final driver = DriverModel.fromJson(json);
+
+      expect(driver.outstationBooking, isFalse);
+    });
+
+    test('Parses outstation_booking true correctly from JSON', () {
+      final json = {
+        'id': 'drv-uuid-1234',
+        'name': 'Ramesh Singh',
+        'email': 'ramesh@example.com',
+        'phone': '+919876543210',
+        'outstation_booking': true,
+      };
+
+      final driver = DriverModel.fromJson(json);
+
+      expect(driver.outstationBooking, isTrue);
+    });
+
+    test('Serializes outstation_booking to JSON', () {
+      final driver = DriverModel(
+        name: 'Ramesh Singh',
+        email: 'ramesh@example.com',
+        phone: '+919876543210',
+        outstationBooking: true,
+      );
+
+      final json = driver.toJson();
+
+      expect(json['outstation_booking'], isTrue);
+    });
+
+    test('copyWith updates outstationBooking correctly', () {
+      final driver = DriverModel(
+        name: 'Ramesh Singh',
+        email: 'ramesh@example.com',
+        phone: '+919876543210',
+        outstationBooking: false,
+      );
+
+      final updated = driver.copyWith(outstationBooking: true);
+
+      expect(updated.outstationBooking, isTrue);
+    });
+  });
 }

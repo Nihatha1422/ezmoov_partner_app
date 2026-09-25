@@ -111,6 +111,69 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
+  void _showOutstationPassRequiredDialog(BuildContext context, String driverId, double fee) {
+    final l10n = AppLocalizations.of(context)!;
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEDE9FE),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.alt_route_rounded, color: Color(0xFF7C3AED), size: 24),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l10n.outstationPassRequired,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            l10n.outstationPassRequiredDesc,
+            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text(l10n.cancel, style: const TextStyle(color: AppColors.textMuted)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogCtx);
+                context.push('/wallet?driverId=$driverId');
+              },
+              child: Text(l10n.viewWallet, style: const TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(dialogCtx);
+                if (driverId.isNotEmpty) {
+                  context.read<WalletViewModel>().payOutstationMonthlyFee(driverId: driverId, context: context);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7C3AED),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              icon: const Icon(Icons.flash_on_rounded, size: 16),
+              label: Text(l10n.payMonthlyFeeWallet(fee.toStringAsFixed(0))),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -645,6 +708,176 @@ class _HomeTabState extends State<HomeTab> {
                         ],
                       ),
                     ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // 2B. OUTSTATION BOOKINGS SWITCH WIDGET (WITH MIN ₹100 WALLET CHECK VIA RPC)
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: vm.isOutstationBookingEnabled
+                      ? const Color(0xFFFEF3C7)
+                      : AppColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: vm.isOutstationBookingEnabled
+                        ? const Color(0xFFF59E0B)
+                        : AppColors.border,
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: vm.isTogglingOutstation
+                                      ? const Color(0xFFD97706).withValues(alpha: 0.15)
+                                      : (vm.isOutstationBookingEnabled
+                                          ? const Color(0xFFD97706)
+                                          : AppColors.textMuted.withValues(alpha: 0.2)),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: vm.isTogglingOutstation
+                                    ? const SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Color(0xFFD97706),
+                                        ),
+                                      )
+                                    : Icon(
+                                        Icons.alt_route_rounded,
+                                        color: vm.isOutstationBookingEnabled
+                                            ? Colors.white
+                                            : AppColors.textMuted,
+                                        size: 24,
+                                      ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            l10n.outstationBookings,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: vm.isOutstationBookingEnabled
+                                                  ? const Color(0xFF92400E)
+                                                  : AppColors.textPrimary,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: vm.isOutstationBookingEnabled
+                                                ? const Color(0xFFF59E0B)
+                                                : AppColors.border,
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            l10n.minWallet100Badge,
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w800,
+                                              color: vm.isOutstationBookingEnabled
+                                                  ? Colors.black87
+                                                  : AppColors.textSecondary,
+                                              letterSpacing: 0.3,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      vm.isOutstationBookingEnabled
+                                          ? l10n.outstationOnlineDesc
+                                          : l10n.outstationOfflineDesc,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: vm.isOutstationBookingEnabled
+                                            ? const Color(0xFFB45309)
+                                            : AppColors.textSecondary,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        vm.isTogglingOutstation
+                            ? const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 10),
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Color(0xFFD97706),
+                                  ),
+                                ),
+                              )
+                            : Switch.adaptive(
+                                value: vm.isOutstationBookingEnabled,
+                                activeTrackColor: const Color(0xFFD97706),
+                                activeThumbColor: Colors.white,
+                                onChanged: (val) {
+                                  final walletVm =
+                                      context.read<WalletViewModel>();
+                                  final isFreeOutstation =
+                                      vm.isFreeDriverOutstation ||
+                                          walletVm.isFreeDriverOutstation;
+
+                                  // When is_free_driver_outstation is true, do NOT check if the driver has paid monthly fee for outstanding
+                                  if (val &&
+                                      !isFreeOutstation &&
+                                      !walletVm.isOutstationPassActive) {
+                                    _showOutstationPassRequiredDialog(
+                                      context,
+                                      driver?.id ?? '',
+                                      walletVm.outstationMonthlyFee,
+                                    );
+                                    return;
+                                  }
+                                  vm.toggleOutstationBooking(context);
+                                },
+                              ),
+                      ],
+                    ),
                   ],
                 ),
               ),

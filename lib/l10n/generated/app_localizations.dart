@@ -1198,6 +1198,30 @@ abstract class AppLocalizations {
   /// **'Upload Aadhaar Card'**
   String get uploadAadhaarCard;
 
+  /// No description provided for @aadhaarCardFront.
+  ///
+  /// In en, this message translates to:
+  /// **'Aadhaar Card (Front)'**
+  String get aadhaarCardFront;
+
+  /// No description provided for @uploadAadhaarCardFront.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload Aadhaar Card (Front)'**
+  String get uploadAadhaarCardFront;
+
+  /// No description provided for @aadhaarCardBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Aadhaar Card (Back)'**
+  String get aadhaarCardBack;
+
+  /// No description provided for @uploadAadhaarCardBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload Aadhaar Card (Back)'**
+  String get uploadAadhaarCardBack;
+
   /// No description provided for @drivingLicense.
   ///
   /// In en, this message translates to:
@@ -3615,6 +3639,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'FREE PASS'**
   String get freePassBadge;
+
+  /// No description provided for @outstationBookings.
+  ///
+  /// In en, this message translates to:
+  /// **'Outstation Bookings'**
+  String get outstationBookings;
+
+  /// No description provided for @outstationBookingsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept long distance & inter-city ride requests'**
+  String get outstationBookingsDesc;
+
+  /// No description provided for @outstationEnabledMsg.
+  ///
+  /// In en, this message translates to:
+  /// **'Outstation bookings enabled successfully'**
+  String get outstationEnabledMsg;
+
+  /// No description provided for @outstationDisabledMsg.
+  ///
+  /// In en, this message translates to:
+  /// **'Outstation bookings disabled'**
+  String get outstationDisabledMsg;
+
+  /// No description provided for @minWalletBalanceForOutstation.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimum ₹100 is required in your wallet to enable outstation bookings'**
+  String get minWalletBalanceForOutstation;
+
+  /// No description provided for @minWallet100Badge.
+  ///
+  /// In en, this message translates to:
+  /// **'MIN ₹100 IN WALLET'**
+  String get minWallet100Badge;
+
+  /// No description provided for @outstationOnlineDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Active • Ready for outstation trips'**
+  String get outstationOnlineDesc;
+
+  /// No description provided for @outstationOfflineDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on to receive inter-city & outstation bids'**
+  String get outstationOfflineDesc;
+
+  /// No description provided for @outstandingMonthlyFee.
+  ///
+  /// In en, this message translates to:
+  /// **'Outstanding Monthly Fee'**
+  String get outstandingMonthlyFee;
+
+  /// No description provided for @outstationMonthlyFee.
+  ///
+  /// In en, this message translates to:
+  /// **'Outstation Monthly Fee'**
+  String get outstationMonthlyFee;
+
+  /// No description provided for @freeOutstandingDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Free for now • No monthly fee required for outstation'**
+  String get freeOutstandingDesc;
+
+  /// No description provided for @monthlyPassActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly Pass Active'**
+  String get monthlyPassActive;
+
+  /// No description provided for @monthlyPassExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly Pass Expired'**
+  String get monthlyPassExpired;
+
+  /// No description provided for @passValidUntilDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Pass valid until {date}'**
+  String passValidUntilDate(Object date);
+
+  /// No description provided for @payMonthlyFeeWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay from Wallet (₹{amount})'**
+  String payMonthlyFeeWallet(Object amount);
+
+  /// No description provided for @payMonthlyFeeDirect.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay Directly (₹{amount})'**
+  String payMonthlyFeeDirect(Object amount);
+
+  /// No description provided for @outstationPassRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Outstation Monthly Pass Required'**
+  String get outstationPassRequired;
+
+  /// No description provided for @outstationPassRequiredDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'A monthly fee of ₹2,000 is required to enable long-distance & outstation orders.'**
+  String get outstationPassRequiredDesc;
 }
 
 class _AppLocalizationsDelegate

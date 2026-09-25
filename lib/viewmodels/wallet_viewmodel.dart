@@ -70,7 +70,33 @@ class WalletViewModel extends ChangeNotifier {
     }
   }
 
-  bool get isPassActive => _isFreeDriverLogin || (_dailyStatus?.isPassActive ?? false);
+  bool _isFreeDriverOutstation = false;
+  bool get isFreeDriverOutstation => _isFreeDriverOutstation;
+
+  void setFreeDriverOutstation(bool value) {
+    if (_isFreeDriverOutstation != value) {
+      _isFreeDriverOutstation = value;
+      notifyListeners();
+    }
+  }
+
+  double _outstationMonthlyFee = 2000.0;
+  double get outstationMonthlyFee => _outstationMonthlyFee;
+
+  void setOutstationMonthlyFee(double fee) {
+    if (_outstationMonthlyFee != fee) {
+      _outstationMonthlyFee = fee;
+      notifyListeners();
+    }
+  }
+
+  DateTime? get outstationPassExpiresAt => _wallet?.outstationPassExpiresAt;
+
+  bool get isOutstationPassActive =>
+      _isFreeDriverOutstation || (_wallet?.isOutstationPassActive ?? false);
+
+  bool get isPassActive =>
+      _isFreeDriverLogin || (_dailyStatus?.isPassActive ?? false);
   DateTime? get passExpiresAt => _dailyStatus?.passExpiresAt;
 
   /// Driver is blocked if explicitly blocked in daily status, or if 2 rejections reached, or if 24-hour daily pass is expired/unpaid (when free login is disabled)
@@ -237,8 +263,12 @@ class WalletViewModel extends ChangeNotifier {
 
         if (matchedType == null && _vehicleTypeName.isNotEmpty) {
           for (final vt in vehicleTypes) {
-            if (vt.name.toLowerCase().contains(_vehicleTypeName.toLowerCase()) ||
-                _vehicleTypeName.toLowerCase().contains(vt.name.toLowerCase())) {
+            if (vt.name
+                    .toLowerCase()
+                    .contains(_vehicleTypeName.toLowerCase()) ||
+                _vehicleTypeName
+                    .toLowerCase()
+                    .contains(vt.name.toLowerCase())) {
               matchedType = vt;
               break;
             }
@@ -307,8 +337,6 @@ class WalletViewModel extends ChangeNotifier {
     }
   }
 
-
-
   bool _isPayingFee = false;
   bool get isPayingFee => _isPayingFee;
 
@@ -357,6 +385,114 @@ class WalletViewModel extends ChangeNotifier {
         _showSnackBar(
           context,
           'Error paying daily fee: $e',
+          backgroundColor: Colors.red.shade700,
+        );
+      }
+      return false;
+    }
+  }
+
+  bool _isPayingOutstationFee = false;
+  bool get isPayingOutstationFee => _isPayingOutstationFee;
+
+  /// Driver pays monthly fee (₹2,000) from wallet to activate 1-month outstation pass
+  Future<bool> payOutstationMonthlyFee({
+    required String driverId,
+    required BuildContext context,
+  }) async {
+    if (driverId.isEmpty || _isPayingOutstationFee) return false;
+
+    _isPayingOutstationFee = true;
+    notifyListeners();
+
+    try {
+      final res = await _supabaseService.payDriverOutstationMonthlyFee(
+        driverId: driverId,
+        amount: _outstationMonthlyFee,
+      );
+      _isPayingOutstationFee = false;
+      notifyListeners();
+
+      final success = res['success'] as bool? ?? false;
+      final message = res['message'] as String? ?? 'Payment complete';
+
+      if (success) {
+        await fetchWalletData(driverId, showLoading: false);
+        if (context.mounted) {
+          _showSnackBar(
+            context,
+            '🎉 1-Month Outstation Pass Activated! You can now accept outstation bookings.',
+            backgroundColor: const Color(0xFF09A234),
+          );
+        }
+        return true;
+      } else {
+        if (context.mounted) {
+          _showSnackBar(
+            context,
+            message,
+            backgroundColor: Colors.red.shade700,
+          );
+        }
+        return false;
+      }
+    } catch (e) {
+      _isPayingOutstationFee = false;
+      notifyListeners();
+      if (context.mounted) {
+        _showSnackBar(
+          context,
+          'Error paying outstation monthly fee: $e',
+          backgroundColor: Colors.red.shade700,
+        );
+      }
+      return false;
+    }
+  }
+
+  /// Activate outstation monthly pass directly via Razorpay checkout
+  Future<bool> activateOutstationPassDirect({
+    required String driverId,
+    required String paymentId,
+    required BuildContext context,
+  }) async {
+    if (driverId.isEmpty) return false;
+
+    try {
+      final res = await _supabaseService.activateDriverOutstationPassDirect(
+        driverId: driverId,
+        paymentId: paymentId,
+        amount: _outstationMonthlyFee,
+      );
+
+      final success = res['success'] as bool? ?? false;
+      final message = res['message'] as String? ?? 'Pass activated';
+
+      if (success) {
+        await fetchWalletData(driverId, showLoading: false);
+        if (context.mounted) {
+          _showSnackBar(
+            context,
+            '🎉 1-Month Outstation Pass Activated! You can now accept outstation bookings.',
+            backgroundColor: const Color(0xFF09A234),
+          );
+        }
+        return true;
+      } else {
+        if (context.mounted) {
+          _showSnackBar(
+            context,
+            message,
+            backgroundColor: Colors.red.shade700,
+          );
+        }
+        return false;
+      }
+    } catch (e) {
+      if (context.mounted) {
+        _showSnackBar(
+          context,
+          'Error activating outstation pass: $e',
           backgroundColor: Colors.red.shade700,
         );
       }

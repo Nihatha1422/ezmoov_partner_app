@@ -8,6 +8,7 @@ import 'profile_viewmodel.dart';
 
 enum DocumentType {
   aadhaar,
+  aadhaarBack,
   drivingLicense,
   dlBack,
   vehicleRc,
@@ -25,6 +26,7 @@ class DocumentViewModel extends ChangeNotifier {
   final SupabaseService _supabaseService = SupabaseService.instance;
 
   String? _aadhaarPath;
+  String? _aadhaarBackPath;
   String? _drivingLicensePath;
   String? _dlBackPath;
   String? _vehicleRcPath;
@@ -38,6 +40,7 @@ class DocumentViewModel extends ChangeNotifier {
   String? _selfieWithVehiclePath;
 
   String? get aadhaarPath => _aadhaarPath;
+  String? get aadhaarBackPath => _aadhaarBackPath;
   String? get drivingLicensePath => _drivingLicensePath;
   String? get dlBackPath => _dlBackPath;
   String? get vehicleRcPath => _vehicleRcPath;
@@ -75,6 +78,9 @@ class DocumentViewModel extends ChangeNotifier {
         switch (type) {
           case DocumentType.aadhaar:
             _aadhaarPath = pickedFile.path;
+            break;
+          case DocumentType.aadhaarBack:
+            _aadhaarBackPath = pickedFile.path;
             break;
           case DocumentType.drivingLicense:
             _drivingLicensePath = pickedFile.path;
@@ -120,6 +126,7 @@ class DocumentViewModel extends ChangeNotifier {
   int get uploadedCount {
     int count = 0;
     if (_aadhaarPath != null) count++;
+    if (_aadhaarBackPath != null) count++;
     if (_drivingLicensePath != null) count++;
     if (_dlBackPath != null) count++;
     if (_vehicleRcPath != null) count++;
@@ -134,7 +141,7 @@ class DocumentViewModel extends ChangeNotifier {
     return count;
   }
 
-  bool get areAllDocumentsUploaded => uploadedCount >= 12;
+  bool get areAllDocumentsUploaded => uploadedCount >= 13;
 
   Future<void> submitDocuments(BuildContext context, String driverId) async {
     if (uploadedCount < 4) {
@@ -156,6 +163,15 @@ class DocumentViewModel extends ChangeNotifier {
           bucket: 'documents',
           filePath: _aadhaarPath!,
           fileName: 'aadhaar_${driverId}_$timestamp.jpg',
+        );
+      }
+
+      String aadhaarBackUrl = '';
+      if (_aadhaarBackPath != null) {
+        aadhaarBackUrl = await _supabaseService.uploadImage(
+          bucket: 'documents',
+          filePath: _aadhaarBackPath!,
+          fileName: 'aadhaar_back_${driverId}_$timestamp.jpg',
         );
       }
 
@@ -261,6 +277,7 @@ class DocumentViewModel extends ChangeNotifier {
       final docModel = DocumentModel(
         driverId: driverId,
         aadhaarUrl: aadhaarUrl,
+        aadhaarBackUrl: aadhaarBackUrl,
         drivingLicenseUrl: drivingLicenseUrl,
         dlBackUrl: dlBackUrl,
         vehicleRcUrl: vehicleRcUrl,

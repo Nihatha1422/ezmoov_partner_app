@@ -85,12 +85,7 @@ class _BiddingOutstationDialogState extends State<BiddingOutstationDialog> {
             ? activeBooking.fare
             : BookingModel.extractFare(activeBooking.toJson());
 
-        final estDistanceKm = vm.calculateDistance(
-          activeBooking.pickupLat,
-          activeBooking.pickupLng,
-          activeBooking.dropLat,
-          activeBooking.dropLng,
-        );
+        final estDistanceKm = vm.calculateTripDistance(activeBooking);
 
         return Container(
           decoration: const BoxDecoration(
@@ -251,7 +246,8 @@ class _BiddingOutstationDialogState extends State<BiddingOutstationDialog> {
                 if (activeBooking.hasStops) ...[
                   Container(
                     margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(10),
@@ -259,16 +255,12 @@ class _BiddingOutstationDialogState extends State<BiddingOutstationDialog> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.alt_route_rounded, size: 18, color: Color(0xFFD97706)),
+                        const Icon(Icons.alt_route_rounded,
+                            size: 18, color: Color(0xFFD97706)),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            l10n.intermediateStopsBadge(
-                              activeBooking.stopsCharge > 0
-                                  ? activeBooking.stopsCharge.toStringAsFixed(0)
-                                  : (activeBooking.stopsCount * 25).toString(),
-                              activeBooking.stopsCount,
-                            ),
+                            l10n.stopsBadgeCount(activeBooking.stopsCount),
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -290,8 +282,10 @@ class _BiddingOutstationDialogState extends State<BiddingOutstationDialog> {
 
                     if (driverLat == 0.0 || driverLng == 0.0) {
                       try {
-                        final profileVm = Provider.of<ProfileViewModel>(context, listen: false);
-                        if (profileVm.latitude != 0.0 && profileVm.longitude != 0.0) {
+                        final profileVm = Provider.of<ProfileViewModel>(context,
+                            listen: false);
+                        if (profileVm.latitude != 0.0 &&
+                            profileVm.longitude != 0.0) {
                           driverLat = profileVm.latitude;
                           driverLng = profileVm.longitude;
                         }
@@ -306,37 +300,20 @@ class _BiddingOutstationDialogState extends State<BiddingOutstationDialog> {
                             driverLat,
                             driverLng,
                             activeBooking.pickupLat,
-                            activeBooking.pickupLng)
+                            activeBooking.pickupLng,
+                            applyRoadFactor: true,
+                          )
                         : 0.0;
 
-                    double calculatedTotalTripDist = 0.0;
-                    if (activeBooking.pickupLat != 0.0 &&
-                        activeBooking.pickupLng != 0.0) {
-                      if (activeBooking.hasStops &&
-                          activeBooking.effectiveIntermediateStops.isNotEmpty) {
-                        double currentLat = activeBooking.pickupLat;
-                        double currentLng = activeBooking.pickupLng;
-                        for (final stop in activeBooking.effectiveIntermediateStops) {
-                          if (stop.latitude != 0.0 && stop.longitude != 0.0) {
-                            calculatedTotalTripDist += vm.calculateDistance(
-                                currentLat, currentLng, stop.latitude, stop.longitude);
-                            currentLat = stop.latitude;
-                            currentLng = stop.longitude;
-                          }
-                        }
-                        if (activeBooking.dropLat != 0.0 && activeBooking.dropLng != 0.0) {
-                          calculatedTotalTripDist += vm.calculateDistance(
-                              currentLat, currentLng, activeBooking.dropLat, activeBooking.dropLng);
-                        }
-                      } else if (activeBooking.dropLat != 0.0 && activeBooking.dropLng != 0.0) {
-                        calculatedTotalTripDist = vm.calculateDistance(
-                            activeBooking.pickupLat,
-                            activeBooking.pickupLng,
-                            activeBooking.dropLat,
-                            activeBooking.dropLng);
+                    // Compute customer trip distance [Pickup -> Stops -> Drop]
+                    final dropDistKm = vm.calculateTripDistance(activeBooking);
+
+                    // Trigger background fetch for Google Directions road distance if available
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (vm.getCachedRoadDistance(activeBooking.id) == null) {
+                        vm.fetchBookingRoadDistance(activeBooking);
                       }
-                    }
-                    final dropDistKm = calculatedTotalTripDist;
+                    });
 
                     return Container(
                       width: double.infinity,
@@ -356,7 +333,8 @@ class _BiddingOutstationDialogState extends State<BiddingOutstationDialog> {
                             distanceKm: pickupDistKm,
                           ),
 
-                          const DashedLineConnector(height: 20, color: Color(0xFF10B981)),
+                          const DashedLineConnector(
+                              height: 20, color: Color(0xFF10B981)),
 
                           // Intermediate Stops Loop
                           if (activeBooking.hasStops)
@@ -370,21 +348,21 @@ class _BiddingOutstationDialogState extends State<BiddingOutstationDialog> {
 
                               final double prevLat = (i == 0)
                                   ? activeBooking.pickupLat
-                                  : activeBooking.effectiveIntermediateStops[i - 1].latitude;
+                                  : activeBooking
+                                      .effectiveIntermediateStops[i - 1]
+                                      .latitude;
                               final double prevLng = (i == 0)
                                   ? activeBooking.pickupLng
-                                  : activeBooking.effectiveIntermediateStops[i - 1].longitude;
+                                  : activeBooking
+                                      .effectiveIntermediateStops[i - 1]
+                                      .longitude;
 
-                              final stopDistKm = (prevLat != 0.0 &&
-                                      prevLng != 0.0 &&
-                                      stop.latitude != 0.0 &&
-                                      stop.longitude != 0.0)
-                                  ? vm.calculateDistance(
-                                      prevLat,
-                                      prevLng,
-                                      stop.latitude,
-                                      stop.longitude)
-                                  : 0.0;
+                              final stopDistKm = vm.calculateSegmentDistance(
+                                prevLat,
+                                prevLng,
+                                stop.latitude,
+                                stop.longitude,
+                              );
 
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -412,7 +390,6 @@ class _BiddingOutstationDialogState extends State<BiddingOutstationDialog> {
                     );
                   },
                 ),
-
 
                 const SizedBox(height: 18),
 

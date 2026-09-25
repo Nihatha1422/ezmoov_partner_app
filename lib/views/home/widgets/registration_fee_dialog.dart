@@ -46,20 +46,24 @@ class _RegistrationFeeDialogState extends State<RegistrationFeeDialog> {
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     final paymentId = response.paymentId;
     if (paymentId == null || paymentId.trim().isEmpty) {
-      debugPrint('⚠️ Registration fee payment success callback fired but paymentId is empty/null');
+      debugPrint(
+          '⚠️ Registration fee payment success callback fired but paymentId is empty/null');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Payment verification failed: Invalid Payment ID received.'),
+          content: const Text(
+              'Payment verification failed: Invalid Payment ID received.'),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
       return;
     }
 
-    debugPrint('💳 Razorpay Registration Fee Payment Success! Payment ID: $paymentId');
+    debugPrint(
+        '💳 Razorpay Registration Fee Payment Success! Payment ID: $paymentId');
     if (!mounted) return;
     final vm = context.read<ProfileViewModel>();
     final success = await vm.payRegistrationFee(context);
@@ -93,7 +97,8 @@ class _RegistrationFeeDialogState extends State<RegistrationFeeDialog> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('External wallet ${response.walletName ?? ''} selected. Complete payment in wallet app.'),
+        content: Text(
+            'External wallet ${response.walletName ?? ''} selected. Complete payment in wallet app.'),
         backgroundColor: Colors.black87,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -263,6 +268,7 @@ class _RegistrationFeeDialogState extends State<RegistrationFeeDialog> {
                     width: double.infinity,
                     child: GradientButton(
                       text: buttonText,
+                      fontSize: 12,
                       isLoading: isPaying,
                       icon: Icons.credit_card_rounded,
                       onPressed: isPaying

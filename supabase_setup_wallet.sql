@@ -562,14 +562,31 @@ CREATE TRIGGER trg_credit_driver_wallet_on_booking_completion
     FOR EACH ROW
     EXECUTE FUNCTION public.credit_driver_wallet_on_booking_completion();
 
--- 9B. Function to automatically set online drivers offline if 24-hour pass has expired
+-- 9B. Function to automatically set online drivers offline if 24-hour pass has expired (respects free login mode in highest app version)
 DROP FUNCTION IF EXISTS public.check_expired_daily_passes();
 
 CREATE OR REPLACE FUNCTION public.check_expired_daily_passes()
 RETURNS INTEGER AS $$
 DECLARE
     v_count INTEGER := 0;
+    v_is_free_login BOOLEAN := false;
 BEGIN
+    -- Check if free driver login is active in the latest/highest partner_app_config
+    SELECT COALESCE(is_free_driver_login, false) INTO v_is_free_login
+    FROM public.partner_app_config
+    ORDER BY 
+        CASE 
+            WHEN version ~ '^[0-9]+(\.[0-9]+)*$' THEN string_to_array(version, '.')::int[] 
+            ELSE ARRAY[0] 
+        END DESC, 
+        id DESC
+    LIMIT 1;
+
+    -- If free login is active, bypass auto-offline
+    IF v_is_free_login = true THEN
+        RETURN 0;
+    END IF;
+
     UPDATE public.drivers d
     SET is_online = false, updated_at = now()
     FROM public.driver_daily_status s
@@ -582,19 +599,49 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Database BEFORE UPDATE Trigger to STRICTLY prevent drivers from going online if pass is expired
+-- Database BEFORE UPDATE Trigger to STRICTLY prevent drivers from going online if pass is expired (respects free login mode in highest app version)
 CREATE OR REPLACE FUNCTION public.prevent_online_without_pass()
 RETURNS TRIGGER AS $$
 DECLARE
     v_pass_expires_at TIMESTAMPTZ;
     v_is_blocked BOOLEAN := false;
     v_rejections INTEGER := 0;
+    v_is_free_login BOOLEAN := false;
 BEGIN
     IF NEW.is_online = true THEN
+        -- Check if free driver login is active in the highest partner_app_config version
+        SELECT COALESCE(is_free_driver_login, false) INTO v_is_free_login
+        FROM public.partner_app_config
+        ORDER BY 
+            CASE 
+                WHEN version ~ '^[0-9]+(\.[0-9]+)*$' THEN string_to_array(version, '.')::int[] 
+                ELSE ARRAY[0] 
+            END DESC, 
+            id DESC
+        LIMIT 1;
+
+        -- If free driver login is active, bypass daily pass / fee check
+        IF v_is_free_login = true THEN
+            SELECT COALESCE(is_blocked, false), COALESCE(rejections_count, 0)
+            INTO v_is_blocked, v_rejections
+            FROM public.driver_daily_status
+            WHERE driver_id = NEW.id
+            ORDER BY status_date DESC, created_at DESC
+            LIMIT 1;
+
+            IF v_is_blocked = true OR v_rejections >= 2 THEN
+                NEW.is_online := false;
+            END IF;
+            
+            RETURN NEW;
+        END IF;
+
         SELECT pass_expires_at, COALESCE(is_blocked, false), COALESCE(rejections_count, 0)
         INTO v_pass_expires_at, v_is_blocked, v_rejections
         FROM public.driver_daily_status
-        WHERE driver_id = NEW.id;
+        WHERE driver_id = NEW.id
+        ORDER BY status_date DESC, created_at DESC
+        LIMIT 1;
 
         -- If no daily status record exists, or pass expired, or rejections >= 2, FORCE is_online = false in the DB!
         IF v_is_blocked = true OR v_rejections >= 2 OR v_pass_expires_at IS NULL OR v_pass_expires_at <= now() THEN

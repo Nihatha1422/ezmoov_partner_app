@@ -113,11 +113,16 @@ BEGIN
         LIMIT 1;
     END IF;
 
-    -- 2. Fallback to latest configured row if no exact version matched
+    -- 2. Fallback to highest/latest configured version if no exact version matched
     IF v_config IS NULL THEN
         SELECT * INTO v_config 
         FROM public.partner_app_config 
-        ORDER BY id DESC 
+        ORDER BY 
+            CASE 
+                WHEN version ~ '^[0-9]+(\.[0-9]+)*$' THEN string_to_array(version, '.')::int[] 
+                ELSE ARRAY[0] 
+            END DESC,
+            id DESC 
         LIMIT 1;
     END IF;
 
@@ -126,7 +131,7 @@ BEGIN
     ELSE
         RETURN jsonb_build_object(
             'id', 1,
-            'version', COALESCE(p_version, '1.0.2'),
+            'version', COALESCE(p_version, '1.0.3'),
             'is_maintenance', false,
             'force_update', false,
             'update_url', 'https://play.google.com/store/apps/details?id=com.ezmoov.partner',

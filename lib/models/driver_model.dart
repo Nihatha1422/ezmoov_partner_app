@@ -10,6 +10,7 @@ class DriverModel {
   final String? vehicleType;
   final String? vehicleNumber;
   final bool isOnline;
+  final bool outstationBooking;
   final dynamic currentLocation;
   final bool isVerified;
   final bool isVehicleAdded;
@@ -42,6 +43,7 @@ class DriverModel {
     this.vehicleType,
     this.vehicleNumber,
     this.isOnline = false,
+    this.outstationBooking = false,
     this.currentLocation,
     this.isVerified = false,
     this.isVehicleAdded = false,
@@ -98,6 +100,7 @@ class DriverModel {
       vehicleType: json['vehicle_type'] as String?,
       vehicleNumber: json['vehicle_number'] as String?,
       isOnline: json['is_online'] as bool? ?? false,
+      outstationBooking: json['outstation_booking'] as bool? ?? false,
       currentLocation: json['current_location'],
       isVerified: json['is_verified'] as bool? ?? false,
       isVehicleAdded: json['is_vehicle_added'] as bool? ?? false,
@@ -135,6 +138,7 @@ class DriverModel {
       if (vehicleType != null) 'vehicle_type': vehicleType,
       if (vehicleNumber != null) 'vehicle_number': vehicleNumber,
       'is_online': isOnline,
+      'outstation_booking': outstationBooking,
       'current_location': currentLocation,
       'is_verified': isVerified,
       'is_vehicle_added': isVehicleAdded,
@@ -163,6 +167,7 @@ class DriverModel {
     String? vehicleType,
     String? vehicleNumber,
     bool? isOnline,
+    bool? outstationBooking,
     dynamic currentLocation,
     bool? isVerified,
     bool? isVehicleAdded,
@@ -191,6 +196,7 @@ class DriverModel {
       vehicleType: vehicleType ?? this.vehicleType,
       vehicleNumber: vehicleNumber ?? this.vehicleNumber,
       isOnline: isOnline ?? this.isOnline,
+      outstationBooking: outstationBooking ?? this.outstationBooking,
       currentLocation: currentLocation ?? this.currentLocation,
       isVerified: isVerified ?? this.isVerified,
       isVehicleAdded: isVehicleAdded ?? this.isVehicleAdded,

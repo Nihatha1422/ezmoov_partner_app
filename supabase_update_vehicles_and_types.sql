@@ -25,18 +25,20 @@ ALTER TABLE public.vehicle_types ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFA
 ALTER TABLE public.vehicle_types ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
 ALTER TABLE public.vehicle_types ADD COLUMN IF NOT EXISTS grace_time INT DEFAULT 15;
 ALTER TABLE public.vehicle_types ADD COLUMN IF NOT EXISTS waittime INT DEFAULT 30;
+ALTER TABLE public.vehicle_types ADD COLUMN IF NOT EXISTS millage_cost NUMERIC(10, 2) DEFAULT 0.00;
+ALTER TABLE public.vehicle_types ADD COLUMN IF NOT EXISTS outstation_charges NUMERIC(10, 2) DEFAULT 0.00;
 
 -- 2. Populate / Update vehicle_types with new pricing dataset
 -- daily_fee = daily recharge amount | grace_time = free loading/unloading mins | waittime = per-minute charge (₹) after grace period
-INSERT INTO public.vehicle_types (id, name, capacity, capacity_kg, base_fare, daily_fee, icon_name, is_active, active, grace_time, waittime)
+-- millage_cost = fuel mileage cost per km (₹) | outstation_charges = outstation rate per km (₹)
+INSERT INTO public.vehicle_types (id, name, capacity, capacity_kg, base_fare, daily_fee, icon_name, is_active, active, grace_time, waittime, millage_cost, outstation_charges)
 VALUES 
-  (1,  '2 Wheeler - Bike',  '20 Kgs',   20.00,   100.00,  30.00, 'two_wheeler',       true,  true,  20,  1.0),
-  (2,  '2 Wheeler - Moped', '20 Kgs',   20.00,   100.00,  30.00, 'two_wheeler',       true,  true,  20,  1.5),
-  (3,  '3 Wheeler',         '500 Kgs',  500.00,  210.00, 150.00, 'electric_rickshaw', true,  true,  40,  3.0),
-  (4,  '4 Wheeler',         '750 Kgs',  750.00,  218.00, 175.00, 'local_shipping',    true,  true,  50,  3.5),
-  (5,  '4 Wheeler',         '1200 Kgs', 1200.00, 318.00, 236.00, 'local_shipping',    true,  true,  80,  4.0),
-  (6,  '4 Wheeler',         '1700 Kgs', 1700.00, 380.00, 236.00, 'local_shipping',    true,  true,  110, 7.0),
-  (7,  '4 Wheeler',         '2000 Kgs', 2000.00, 450.00, 236.00, 'local_shipping',    true,  true,  110, 7.5)
+  (1,  '2 Wheeler',      '20 Kgs',   20.00,   43.00,   30.00, 'two_wheeler',       true,  true,  20,  2.0, 0.00,  0.00),
+  (2,  '3 Wheeler',      '500 Kgs',  500.00,  210.00, 175.00, 'electric_rickshaw', true,  true,  40,  3.0, 3.50, 27.00),
+  (4,  '4 Wheeler',      '750 Kgs',  750.00,  218.00, 200.00, 'local_shipping',    true,  true,  50,  3.5, 4.00, 35.50),
+  (5,  '8 Ft Vehicle',   '1200 Kgs', 1200.00, 318.00, 250.00, 'local_shipping',    true,  true,  80,  4.0, 7.00, 35.71),
+  (6,  '9 Ft Vehicle',   '1700 Kgs', 1700.00, 380.00, 270.00, 'local_shipping',    true,  true,  110, 7.0, 7.00, 42.90),
+  (7,  '10 Ft Vehicle',  '2000 Kgs', 2000.00, 400.00, 270.00, 'local_shipping',    true,  true,  110, 7.5, 7.00, 45.00)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   capacity = EXCLUDED.capacity,
@@ -47,7 +49,9 @@ ON CONFLICT (id) DO UPDATE SET
   is_active = EXCLUDED.is_active,
   active = EXCLUDED.active,
   grace_time = EXCLUDED.grace_time,
-  waittime = EXCLUDED.waittime;
+  waittime = EXCLUDED.waittime,
+  millage_cost = EXCLUDED.millage_cost,
+  outstation_charges = EXCLUDED.outstation_charges;
 
 -- 3. Create or Update public.vehicles Table
 CREATE TABLE IF NOT EXISTS public.vehicles (

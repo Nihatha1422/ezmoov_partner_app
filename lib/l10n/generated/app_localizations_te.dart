@@ -607,6 +607,20 @@ class AppLocalizationsTe extends AppLocalizations {
   String get uploadAadhaarCard => 'ఆధార్ కార్డ్‌ను అప్‌లోడ్ చేయండి';
 
   @override
+  String get aadhaarCardFront => 'ఆధార్ కార్డ్ (ముందు భాగం)';
+
+  @override
+  String get uploadAadhaarCardFront =>
+      'ఆధార్ కార్డ్ (ముందు భాగం) అప్‌లోడ్ చేయండి';
+
+  @override
+  String get aadhaarCardBack => 'ఆధార్ కార్డ్ (వెనుక భాగం)';
+
+  @override
+  String get uploadAadhaarCardBack =>
+      'ఆధార్ కార్డ్ (వెనుక భాగం) అప్‌లోడ్ చేయండి';
+
+  @override
   String get drivingLicense => 'డ్రైవింగ్ లైసెన్స్';
 
   @override
@@ -1988,4 +2002,72 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get freePassBadge => 'ఉచిత పాస్';
+
+  @override
+  String get outstationBookings => 'అవుట్‌స్టేషన్ బుకింగ్‌లు';
+
+  @override
+  String get outstationBookingsDesc =>
+      'సుదూర మరియు నగరాల మధ్య రైడ్ అభ్యర్థనలను స్వీకరించండి';
+
+  @override
+  String get outstationEnabledMsg =>
+      'అవుట్‌స్టేషన్ బుకింగ్‌లు విజయవంతంగా ప్రారంభించబడ్డాయి';
+
+  @override
+  String get outstationDisabledMsg =>
+      'అవుట్‌స్టేషన్ బుకింగ్‌లు నిలిపివేయబడ్డాయి';
+
+  @override
+  String get minWalletBalanceForOutstation =>
+      'అవుట్‌స్టేషన్ బుకింగ్‌లను ప్రారంభించడానికి మీ వాలెట్‌లో కనీసం ₹100 ఉండాలి';
+
+  @override
+  String get minWallet100Badge => 'వాలెట్‌లో కనీసం ₹100';
+
+  @override
+  String get outstationOnlineDesc =>
+      'యాక్టివ్ • అవుట్‌స్టేషన్ ట్రిప్‌లకు సిద్ధంగా ఉంది';
+
+  @override
+  String get outstationOfflineDesc =>
+      'అంతర్-నగర & అవుట్‌స్టేషన్ బిడ్‌లను స్వీకరించడానికి ఆన్ చేయండి';
+
+  @override
+  String get outstandingMonthlyFee => 'అవుట్‌స్టాండింగ్ నెలవారీ రుసుము';
+
+  @override
+  String get outstationMonthlyFee => 'అవుట్‌స్టేషన్ నెలవారీ రుసుము';
+
+  @override
+  String get freeOutstandingDesc =>
+      'ప్రస్తుతానికి ఉచితం • అవుట్‌స్టేషన్ కోసం నెలవారీ రుసుము లేదు';
+
+  @override
+  String get monthlyPassActive => 'నెలవారీ పాస్ సక్రియంగా ఉంది';
+
+  @override
+  String get monthlyPassExpired => 'నెలవారీ పాస్ గడువు ముగిసింది';
+
+  @override
+  String passValidUntilDate(Object date) {
+    return 'పాస్ $date వరకు చెల్లుతుంది';
+  }
+
+  @override
+  String payMonthlyFeeWallet(Object amount) {
+    return 'వాలెట్ నుండి చెల్లించండి (₹$amount)';
+  }
+
+  @override
+  String payMonthlyFeeDirect(Object amount) {
+    return 'నేరుగా చెల్లించండి (₹$amount)';
+  }
+
+  @override
+  String get outstationPassRequired => 'అవుట్‌స్టేషన్ నెలవారీ పాస్ అవసరం';
+
+  @override
+  String get outstationPassRequiredDesc =>
+      'సుదూర మరియు అవుట్‌స్టేషన్ ఆర్డర్‌లను ప్రారంభించడానికి ₹2,000 నెలవారీ రుసుము అవసరం.';
 }

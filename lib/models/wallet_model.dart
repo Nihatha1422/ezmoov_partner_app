@@ -2,6 +2,7 @@ class DriverWalletModel {
   final String? id;
   final String driverId;
   final double balance;
+  final DateTime? outstationPassExpiresAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -9,15 +10,35 @@ class DriverWalletModel {
     this.id,
     required this.driverId,
     this.balance = 0.0,
+    this.outstationPassExpiresAt,
     this.createdAt,
     this.updatedAt,
   });
+
+  bool get isOutstationPassActive {
+    if (outstationPassExpiresAt == null) return false;
+    return outstationPassExpiresAt!.isAfter(DateTime.now());
+  }
+
+  static DateTime? _parseDateTimeToLocal(dynamic val) {
+    if (val == null) return null;
+    final str = val.toString().trim();
+    if (str.isEmpty) return null;
+    final formatted = str.endsWith('Z') || str.contains('+')
+        ? str
+        : '${str.replaceAll(' ', 'T')}Z';
+    return DateTime.tryParse(formatted)?.toLocal() ?? DateTime.tryParse(str)?.toLocal();
+  }
 
   factory DriverWalletModel.fromJson(Map<String, dynamic> json) {
     return DriverWalletModel(
       id: json['id'] as String?,
       driverId: json['driver_id'] as String? ?? '',
       balance: (json['balance'] as num?)?.toDouble() ?? 0.0,
+      outstationPassExpiresAt: _parseDateTimeToLocal(
+          json['outstation_pass_expires_at'] ??
+              json['outstanding_pass_expires_at'] ??
+              json['outstationPassExpiresAt']),
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
     );
@@ -28,6 +49,8 @@ class DriverWalletModel {
       if (id != null) 'id': id,
       'driver_id': driverId,
       'balance': balance,
+      if (outstationPassExpiresAt != null)
+        'outstation_pass_expires_at': outstationPassExpiresAt!.toIso8601String(),
     };
   }
 }

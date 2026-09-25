@@ -2,6 +2,7 @@ class DocumentModel {
   final String? id;
   final String driverId;
   final String aadhaarUrl;
+  final String aadhaarBackUrl;
   final String drivingLicenseUrl;
   final String dlBackUrl;
   final String vehicleRcUrl;
@@ -21,6 +22,7 @@ class DocumentModel {
     this.id,
     required this.driverId,
     this.aadhaarUrl = '',
+    this.aadhaarBackUrl = '',
     this.drivingLicenseUrl = '',
     this.dlBackUrl = '',
     this.vehicleRcUrl = '',
@@ -42,6 +44,10 @@ class DocumentModel {
       id: json['id'] as String?,
       driverId: json['driver_id'] as String? ?? '',
       aadhaarUrl: json['aadhaar_url'] as String? ?? '',
+      aadhaarBackUrl: json['aadhaar_back_url'] as String? ??
+          json['aadhaar_back'] as String? ??
+          json['aadhaar_card_back_url'] as String? ??
+          '',
       drivingLicenseUrl: json['driving_license_url'] as String? ?? '',
       dlBackUrl: json['dl_back_url'] as String? ??
           json['dl_back'] as String? ??
@@ -74,6 +80,7 @@ class DocumentModel {
       if (id != null) 'id': id,
       'driver_id': driverId,
       'aadhaar_url': aadhaarUrl,
+      'aadhaar_back_url': aadhaarBackUrl,
       'driving_license_url': drivingLicenseUrl,
       'dl_back_url': dlBackUrl,
       'vehicle_rc_url': vehicleRcUrl,

@@ -6,6 +6,8 @@
 ALTER TABLE public.vehicle_types ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
 ALTER TABLE public.vehicle_types ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
 ALTER TABLE public.vehicle_types ADD COLUMN IF NOT EXISTS daily_fee NUMERIC(10, 2) DEFAULT 100.00;
+ALTER TABLE public.vehicle_types ADD COLUMN IF NOT EXISTS millage_cost NUMERIC(10, 2) DEFAULT 0.00;
+ALTER TABLE public.vehicle_types ADD COLUMN IF NOT EXISTS outstation_charges NUMERIC(10, 2) DEFAULT 0.00;
 
 -- 2. Clear old catalog/types and insert the exact dataset
 TRUNCATE TABLE public.vehicle_types RESTART IDENTITY CASCADE;
@@ -20,16 +22,18 @@ INSERT INTO public.vehicle_types (
     active, 
     icon_name,
     grace_time,
-    waittime
+    waittime,
+    millage_cost,
+    outstation_charges
 ) VALUES 
-  -- daily_fee = daily recharge amount (₹) | grace_time = free period (mins) | waittime = per-min charge (₹) after grace
-  ('2 Wheeler - Bike',  '20 Kgs',   20.00,   100.00,  30.00, true,  true,  'two_wheeler',        20,  1.0),
-  ('2 Wheeler - Moped', '20 Kgs',   20.00,   100.00,  30.00, true,  true,  'two_wheeler',        20,  1.5),
-  ('3 Wheeler',         '500 Kgs',  500.00,  210.00, 150.00, true,  true,  'electric_rickshaw',  40,  3.0),
-  ('4 Wheeler',         '750 Kgs',  750.00,  218.00, 175.00, true,  true,  'local_shipping',     50,  3.5),
-  ('4 Wheeler',         '1200 Kgs', 1200.00, 318.00, 236.00, true,  true,  'local_shipping',     80,  4.0),
-  ('4 Wheeler',         '1700 Kgs', 1700.00, 380.00, 236.00, true,  true,  'local_shipping',    110,  7.0),
-  ('4 Wheeler',         '2000 Kgs', 2000.00, 450.00, 236.00, true,  true,  'local_shipping',    110,  7.5);
+  -- daily_fee = daily recharge amount (₹) | grace_time = free period (mins) | waittime = per-min charge (₹) after grace | millage_cost = mileage rate (₹) | outstation_charges = outstation rate (₹)
+  ('2 Wheeler - Bike',  '20 Kgs',   20.00,   100.00,  30.00, true,  true,  'two_wheeler',        20,  1.0, 0.00,  0.00),
+  ('2 Wheeler - Moped', '20 Kgs',   20.00,   100.00,  30.00, true,  true,  'two_wheeler',        20,  1.5, 0.00,  0.00),
+  ('3 Wheeler',         '500 Kgs',  500.00,  210.00, 150.00, true,  true,  'electric_rickshaw',  40,  3.0, 3.50, 27.00),
+  ('4 Wheeler',         '750 Kgs',  750.00,  218.00, 175.00, true,  true,  'local_shipping',     50,  3.5, 4.00, 35.50),
+  ('4 Wheeler',         '1200 Kgs', 1200.00, 318.00, 236.00, true,  true,  'local_shipping',     80,  4.0, 7.00, 35.71),
+  ('4 Wheeler',         '1700 Kgs', 1700.00, 380.00, 236.00, true,  true,  'local_shipping',    110,  7.0, 7.00, 42.90),
+  ('4 Wheeler',         '2000 Kgs', 2000.00, 450.00, 236.00, true,  true,  'local_shipping',    110,  7.5, 7.00, 45.00);
 
 -- 3. Reload schema cache for PostgREST
 NOTIFY pgrst, 'reload schema';
@@ -42,6 +46,10 @@ SELECT
     capacity_kg, 
     base_fare, 
     daily_fee, 
+    grace_time,
+    waittime,
+    millage_cost,
+    outstation_charges,
     is_active, 
     icon_name 
 FROM public.vehicle_types 

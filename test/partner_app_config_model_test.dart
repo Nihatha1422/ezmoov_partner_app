@@ -14,11 +14,12 @@ void main() {
       expect(config.registrationFee, 499.00);
       expect(config.regestrationFee, 499.00);
       expect(config.isFreeDriverLogin, false);
+      expect(config.isFreeDriverOutstation, false);
       expect(config.updateTitle, 'Update Available');
       expect(config.maintenanceTitle, 'App Under Maintenance');
     });
 
-    test('Parses JSON with exact user requested column names (is_maintanace, regestration_fee, update, is_free_driver_login)', () {
+    test('Parses JSON with exact user requested column names (is_maintanace, regestration_fee, update, is_free_driver_login, is_free_driver_outstation)', () {
       final json = {
         'id': 1,
         'version': '2.4.0',
@@ -27,6 +28,7 @@ void main() {
         'update_url': 'https://play.google.com/store/apps/details?id=com.ezmoov.partner',
         'regestration_fee': 299.50,
         'is_free_driver_login': true,
+        'is_free_driver_outstation': true,
         'maintenance_message': 'Server upgrade in progress',
       };
 
@@ -41,6 +43,7 @@ void main() {
       expect(config.registrationFee, 299.50);
       expect(config.regestrationFee, 299.50);
       expect(config.isFreeDriverLogin, true);
+      expect(config.isFreeDriverOutstation, true);
       expect(config.maintenanceMessage, 'Server upgrade in progress');
     });
 
@@ -52,6 +55,7 @@ void main() {
         'force_update': false,
         'registration_fee': 599.00,
         'is_free_driver_login': false,
+        'is_free_driver_outstation': false,
       };
 
       final config = PartnerAppConfigModel.fromJson(json);
@@ -62,6 +66,7 @@ void main() {
       expect(config.forceUpdate, false);
       expect(config.registrationFee, 599.00);
       expect(config.isFreeDriverLogin, false);
+      expect(config.isFreeDriverOutstation, false);
     });
 
     test('Parses string/numeric representations safely', () {
@@ -72,6 +77,7 @@ void main() {
         'update': 'false',
         'regestration_fee': '750',
         'is_free_driver_login': 'true',
+        'is_free_driver_outstation': 'true',
       };
 
       final config = PartnerAppConfigModel.fromJson(json);
@@ -82,6 +88,7 @@ void main() {
       expect(config.forceUpdate, false);
       expect(config.registrationFee, 750.00);
       expect(config.isFreeDriverLogin, true);
+      expect(config.isFreeDriverOutstation, true);
     });
 
     test('toJson outputs all expected keys including exact user spellings', () {
@@ -92,6 +99,7 @@ void main() {
         forceUpdate: true,
         registrationFee: 350.00,
         isFreeDriverLogin: true,
+        isFreeDriverOutstation: true,
       );
 
       final json = config.toJson();
@@ -105,6 +113,7 @@ void main() {
       expect(json['regestration_fee'], 350.00);
       expect(json['registration_fee'], 350.00);
       expect(json['is_free_driver_login'], true);
+      expect(json['is_free_driver_outstation'], true);
     });
 
     test('copyWith updates specified fields correctly', () {
@@ -114,12 +123,14 @@ void main() {
         isMaintenance: true,
         registrationFee: 0.0,
         isFreeDriverLogin: true,
+        isFreeDriverOutstation: true,
       );
 
       expect(updated.version, '2.0.0');
       expect(updated.isMaintenance, true);
       expect(updated.registrationFee, 0.0);
       expect(updated.isFreeDriverLogin, true);
+      expect(updated.isFreeDriverOutstation, true);
       expect(updated.forceUpdate, false);
     });
   });

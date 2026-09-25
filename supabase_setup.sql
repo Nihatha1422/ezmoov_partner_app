@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS public.documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     driver_id UUID NOT NULL REFERENCES public.drivers(id) ON DELETE CASCADE,
     aadhaar_url TEXT DEFAULT '',
+    aadhaar_back_url TEXT DEFAULT '',
     driving_license_url TEXT DEFAULT '',
     dl_back_url TEXT DEFAULT '',
     vehicle_rc_url TEXT DEFAULT '',
@@ -106,6 +107,7 @@ CREATE TABLE IF NOT EXISTS public.documents (
 
 -- Ensure all document URL columns exist if table already exists
 ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS aadhaar_url TEXT DEFAULT '';
+ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS aadhaar_back_url TEXT DEFAULT '';
 ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS driving_license_url TEXT DEFAULT '';
 ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS dl_back_url TEXT DEFAULT '';
 ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS vehicle_rc_url TEXT DEFAULT '';

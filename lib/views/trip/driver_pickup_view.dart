@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -44,7 +43,6 @@ class _DriverPickupViewState extends State<DriverPickupView> {
   bool _isUploadingPickup = false;
   File? _podImageFile;
   bool _isUploadingPod = false;
-  Map<String, dynamic> _driverExtraCharges = {};
   Timer? _statusCheckTimer;
   Timer? _liveUiTimer;
   DateTime? _localArrivedAtPickupAt;
@@ -387,133 +385,6 @@ class _DriverPickupViewState extends State<DriverPickupView> {
     }
   }
 
-  void _showFareBreakdownModal() {
-    final booking = _booking;
-    if (booking == null) return;
-    final l10n = AppLocalizations.of(context)!;
-
-    final amountMap = booking.amount ?? {};
-    final baseFare =
-        (amountMap['base_fare'] ?? booking.baseFare ?? 0.0).toDouble();
-    final distanceCharges =
-        (amountMap['distance_charges'] ?? booking.distanceCharges ?? 0.0)
-            .toDouble();
-    final stopsCharge = (amountMap['stops_charge'] ??
-            booking.stopsCharge ??
-            (booking.stopsCount * 25.0))
-        .toDouble();
-    final waitingCharges =
-        (amountMap['waiting_charges'] ?? booking.waitingCharges ?? 0.0)
-            .toDouble();
-    final rawTripPrice =
-        (amountMap['total_price'] ?? booking.fare ?? 0.0).toDouble();
-    final totalPrice = rawTripPrice + waitingCharges;
-
-    final calcBaseFare = baseFare > 0
-        ? baseFare
-        : (rawTripPrice > 0
-            ? (rawTripPrice - distanceCharges - stopsCharge)
-            : 0.0);
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (modalContext) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.receipt_long_rounded,
-                        color: AppColors.primary, size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      l10n.tripFareBreakdown,
-                      style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _FareItemRow(
-                  label: l10n.baseFareIncludes1km,
-                  amount: calcBaseFare > 0 ? calcBaseFare : 0.0),
-              const SizedBox(height: 10),
-              _FareItemRow(
-                  label: l10n.distanceChargesBeyond1km,
-                  amount: distanceCharges),
-              const SizedBox(height: 10),
-              _FareItemRow(
-                label: l10n.stopsChargeLabel(booking.stopsCount),
-                amount: stopsCharge,
-                isHighlight: booking.hasStops,
-              ),
-              const SizedBox(height: 10),
-              _FareItemRow(
-                label: l10n.waitingCharges,
-                amount: waitingCharges,
-                isHighlight: waitingCharges > 0,
-              ),
-              const SizedBox(height: 10),
-              _FareItemRow(
-                  label: l10n.taxesAndGst, amount: 0.0, isZero: true),
-              const Divider(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(l10n.totalDeliveryFee,
-                      style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary)),
-                  Text('₹ ${totalPrice.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary)),
-                ],
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: () => Navigator.pop(modalContext),
-                  child: Text(l10n.closeCaps,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, color: Colors.white)),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildLiveWaitingTimerCard(BookingModel booking) {
     final currentStatus = booking.status.toLowerCase();
     final isAtPickup =
@@ -806,69 +677,6 @@ class _DriverPickupViewState extends State<DriverPickupView> {
                 style: const TextStyle(
                     fontSize: 14, color: AppColors.textSecondary),
               ),
-              if (incentive > 0) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
-                    border:
-                        Border.all(color: const Color(0xFF10B981), width: 1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(l10n.tripFare,
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textSecondary)),
-                          Text('₹${tripFare.toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textSecondary)),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(l10n.farDriverIncentive,
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF10B981),
-                                  fontWeight: FontWeight.bold)),
-                          Text('+ ₹${incentive.toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF10B981),
-                                  fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const Divider(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(l10n.totalToCollect,
-                              style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary)),
-                          Text('₹${totalFare.toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primaryDark)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -1158,221 +966,6 @@ class _DriverPickupViewState extends State<DriverPickupView> {
                   ),
                 ],
               ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showAddExtraChargesPopup(
-      BuildContext dialogContext, StateSetter setParentModalState) {
-    final l10n = AppLocalizations.of(dialogContext)!;
-    final chargeNameController = TextEditingController();
-    final chargeAmountController = TextEditingController();
-    Map<String, dynamic> tempChargesMap =
-        Map<String, dynamic>.from(_driverExtraCharges);
-
-    showDialog(
-      context: dialogContext,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.receipt_long_rounded,
-                      color: AppColors.primary,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      l10n.addExtraChargesCaps,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.addExtraExpensesDesc,
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: chargeNameController,
-                      decoration: InputDecoration(
-                        labelText: l10n.chargeName,
-                        hintText: l10n.chargeNameHint,
-                        filled: true,
-                        fillColor: AppColors.background,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.border),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: chargeAmountController,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                            RegExp(r'^[0-9]+(?:[.,][0-9]{1,2})?$')),
-                      ],
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(
-                        labelText: l10n.chargeAmount,
-                        hintText: l10n.chargeAmountHint,
-                        filled: true,
-                        fillColor: AppColors.background,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.border),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // + ADD Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        icon: const Icon(Icons.add_rounded, size: 20),
-                        label: Text(l10n.addCaps,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 14)),
-                        onPressed: () {
-                          final name =
-                              chargeNameController.text.trim().toLowerCase();
-                          final amountText = chargeAmountController.text.trim();
-                          final numVal = double.tryParse(amountText);
-
-                          if (name.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(
-                                      l10n.enterChargeNameAlert)),
-                            );
-                            return;
-                          }
-                          if (numVal == null || numVal <= 0) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(
-                                      l10n.enterValidChargeAmountAlert)),
-                            );
-                            return;
-                          }
-
-                          setDialogState(() {
-                            tempChargesMap[name] =
-                                numVal % 1 == 0 ? numVal.toInt() : numVal;
-                            chargeNameController.clear();
-                            chargeAmountController.clear();
-                          });
-                        },
-                      ),
-                    ),
-
-                    if (tempChargesMap.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        l10n.addedChargesList,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: tempChargesMap.entries.map((entry) {
-                          return Chip(
-                            backgroundColor:
-                                AppColors.primary.withValues(alpha: 0.1),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              side: const BorderSide(color: AppColors.primary),
-                            ),
-                            label: Text(
-                              '${entry.key}: ₹${entry.value}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primaryDark,
-                              ),
-                            ),
-                            deleteIcon: const Icon(Icons.close,
-                                size: 16, color: AppColors.error),
-                            onDeleted: () {
-                              setDialogState(() {
-                                tempChargesMap.remove(entry.key);
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(l10n.cancelCaps,
-                      style: const TextStyle(color: AppColors.textSecondary)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () {
-                    setParentModalState(() {
-                      _driverExtraCharges =
-                          Map<String, dynamic>.from(tempChargesMap);
-                    });
-                    Navigator.of(context).pop();
-                  },
-                  child: Text(l10n.submitCaps,
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-              ],
             );
           },
         );
@@ -1762,111 +1355,6 @@ class _DriverPickupViewState extends State<DriverPickupView> {
                           ),
                   ),
 
-                  if (!(_booking?.service?.toLowerCase().contains('bidding') ??
-                      false)) ...[
-                    const SizedBox(height: 16),
-
-                    // Add Extra Charges Button
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                            color: AppColors.primary, width: 1.5),
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 12, horizontal: 16),
-                        minimumSize: const Size(double.infinity, 44),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: const Icon(Icons.add_circle_outline_rounded,
-                          color: AppColors.primary),
-                      label: Text(
-                        l10n.addExtraChargesCaps,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      onPressed: () {
-                        _showAddExtraChargesPopup(modalContext, setModalState);
-                      },
-                    ),
-
-                    if (_driverExtraCharges.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: AppColors.primary.withValues(alpha: 0.3)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  l10n.driverExtraCharges,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primaryDark,
-                                  ),
-                                ),
-                                GestureDetector(
-                                  onTap: () {
-                                    _showAddExtraChargesPopup(
-                                        modalContext, setModalState);
-                                  },
-                                  child: Text(
-                                    l10n.edit,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              children: _driverExtraCharges.entries.map((e) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                        color: AppColors.primary
-                                            .withValues(alpha: 0.5)),
-                                  ),
-                                  child: Text(
-                                    '${e.key}: ₹${e.value}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-
                   const SizedBox(height: 20),
 
                   GradientButton(
@@ -1890,21 +1378,13 @@ class _DriverPickupViewState extends State<DriverPickupView> {
                         _isUploadingPod = true;
                       });
                       try {
-                        if (_driverExtraCharges.isNotEmpty) {
-                          await SupabaseService.instance.saveDriverCharges(
-                            bookingId: widget.bookingId,
-                            driverCharges: _driverExtraCharges,
-                            bookingIdx: _booking?.idx,
-                          );
-                        }
-
                         await SupabaseService.instance.uploadPodImage(
                           bookingId: widget.bookingId,
                           file: _podImageFile!,
                           bookingIdx: _booking?.idx,
                         );
                       } catch (e) {
-                        debugPrint('Notice uploading POD photo/charges: $e');
+                        debugPrint('Notice uploading POD photo: $e');
                       }
 
                       if (!modalContext.mounted) return;
@@ -2580,53 +2060,28 @@ class _DriverPickupViewState extends State<DriverPickupView> {
                                     _booking != null &&
                                     _booking!.pickupLat != 0.0 &&
                                     _booking!.pickupLng != 0.0)
-                                ? rideVm.calculateDistance(driverLat, driverLng,
-                                    _booking!.pickupLat, _booking!.pickupLng)
+                                ? rideVm.calculateDistance(
+                                    driverLat,
+                                    driverLng,
+                                    _booking!.pickupLat,
+                                    _booking!.pickupLng,
+                                    applyRoadFactor: true,
+                                  )
                                 : 0.0;
 
-                            double calculatedTotalTripDist = 0.0;
-                            if (_booking != null &&
-                                _booking!.pickupLat != 0.0 &&
-                                _booking!.pickupLng != 0.0) {
-                              if (_booking!.hasStops &&
-                                  _booking!
-                                      .effectiveIntermediateStops.isNotEmpty) {
-                                double currentLat = _booking!.pickupLat;
-                                double currentLng = _booking!.pickupLng;
-                                for (final stop
-                                    in _booking!.effectiveIntermediateStops) {
-                                  if (stop.latitude != 0.0 &&
-                                      stop.longitude != 0.0) {
-                                    calculatedTotalTripDist +=
-                                        rideVm.calculateDistance(
-                                            currentLat,
-                                            currentLng,
-                                            stop.latitude,
-                                            stop.longitude);
-                                    currentLat = stop.latitude;
-                                    currentLng = stop.longitude;
-                                  }
+                            // Total trip distance [Pickup -> Stops -> Drop]
+                            final dropDistKm = _booking != null
+                                ? rideVm.calculateTripDistance(_booking!)
+                                : 0.0;
+
+                            if (_booking != null) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (rideVm.getCachedRoadDistance(_booking!.id) ==
+                                    null) {
+                                  rideVm.fetchBookingRoadDistance(_booking!);
                                 }
-                                if (_booking!.dropLat != 0.0 &&
-                                    _booking!.dropLng != 0.0) {
-                                  calculatedTotalTripDist +=
-                                      rideVm.calculateDistance(
-                                          currentLat,
-                                          currentLng,
-                                          _booking!.dropLat,
-                                          _booking!.dropLng);
-                                }
-                              } else if (_booking!.dropLat != 0.0 &&
-                                  _booking!.dropLng != 0.0) {
-                                calculatedTotalTripDist =
-                                    rideVm.calculateDistance(
-                                        _booking!.pickupLat,
-                                        _booking!.pickupLng,
-                                        _booking!.dropLat,
-                                        _booking!.dropLng);
-                              }
+                              });
                             }
-                            final dropDistKm = calculatedTotalTripDist;
 
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2699,16 +2154,13 @@ class _DriverPickupViewState extends State<DriverPickupView> {
                                                 .longitude ??
                                             0.0);
 
-                                    final stopDistKm = (prevLat != 0.0 &&
-                                            prevLng != 0.0 &&
-                                            stop.latitude != 0.0 &&
-                                            stop.longitude != 0.0)
-                                        ? rideVm.calculateDistance(
-                                            prevLat,
-                                            prevLng,
-                                            stop.latitude,
-                                            stop.longitude)
-                                        : 0.0;
+                                    final stopDistKm =
+                                        rideVm.calculateSegmentDistance(
+                                      prevLat,
+                                      prevLng,
+                                      stop.latitude,
+                                      stop.longitude,
+                                    );
 
                                     return Column(
                                       crossAxisAlignment:
@@ -2934,35 +2386,13 @@ class _DriverPickupViewState extends State<DriverPickupView> {
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      l10n.totalDeliveryFareLabel,
-                                      style: const TextStyle(
-                                          fontSize: 13,
-                                          color: AppColors.textSecondary),
-                                    ),
-                                    InkWell(
-                                      onTap: _showFareBreakdownModal,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            l10n.viewFareBreakdown,
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.primary,
-                                            ),
-                                          ),
-                                          const Icon(Icons.chevron_right_rounded,
-                                              size: 14,
-                                              color: AppColors.primary),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+                                child: Text(
+                                  l10n.totalDeliveryFareLabel,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -2991,18 +2421,6 @@ class _DriverPickupViewState extends State<DriverPickupView> {
                                       color: AppColors.primaryDark,
                                     ),
                                   ),
-                                  if ((_booking!.farDriverIncentive ?? 0) > 0)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 2),
-                                      child: Text(
-                                        l10n.inclFarDriverIncentive(_booking!.farDriverIncentive!.toStringAsFixed(0)),
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: Color(0xFF10B981),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
                                 ],
                               ),
                             ],
@@ -3189,51 +2607,6 @@ class _DriverPickupViewState extends State<DriverPickupView> {
                 ],
               ),
             ),
-    );
-  }
-}
-
-class _FareItemRow extends StatelessWidget {
-  final String label;
-  final double amount;
-  final bool isHighlight;
-  final bool isZero;
-
-  const _FareItemRow({
-    required this.label,
-    required this.amount,
-    this.isHighlight = false,
-    this.isZero = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              color: isHighlight
-                  ? const Color(0xFFB45309)
-                  : AppColors.textSecondary,
-              fontWeight: isHighlight ? FontWeight.bold : FontWeight.w500,
-            ),
-          ),
-        ),
-        Text(
-          isZero ? '₹ 0.00' : '₹ ${amount.toStringAsFixed(2)}',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: isHighlight
-                ? const Color(0xFFD97706)
-                : (isZero ? AppColors.textMuted : AppColors.textPrimary),
-          ),
-        ),
-      ],
     );
   }
 }

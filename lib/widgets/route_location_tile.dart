@@ -44,6 +44,7 @@ class RouteLocationTile extends StatelessWidget {
   final double distanceKm;
   final String? customTitle;
   final int? stopIndex;
+  final String? customDistanceText;
 
   const RouteLocationTile({
     super.key,
@@ -52,6 +53,7 @@ class RouteLocationTile extends StatelessWidget {
     required this.distanceKm,
     this.customTitle,
     this.stopIndex,
+    this.customDistanceText,
   });
 
   String _getDefaultTitle(BuildContext context) {
@@ -90,7 +92,8 @@ class RouteLocationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final areaHeader = _formatAreaHeader(context, address);
-    final distanceText = '${distanceKm > 0 ? distanceKm.toStringAsFixed(1) : '0.0'} KM';
+    final distanceText = customDistanceText ??
+        '${distanceKm > 0 ? distanceKm.toStringAsFixed(1) : '0.0'} KM';
 
     Color pillBg;
     Color pillBorder;
